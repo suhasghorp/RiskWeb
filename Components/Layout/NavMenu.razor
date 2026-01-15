@@ -1,0 +1,265 @@
+@using RiskWeb.Services
+@inject ModuleStateService ModuleState
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<MudNavMenu Class="nav-menu">
+    @foreach (var item in MenuItems)
+    {
+        @if (item.Children != null && item.Children.Any())
+        {
+            <MudNavGroup Title="@item.Text" Expanded="@IsGroupExpanded(item)" ExpandedChanged="@((bool expanded) => OnGroupExpandedChanged(item, expanded))">
+                @foreach (var child in item.Children)
+                {
+                    <MudNavLink Href="@child.NavigateUrl"
+                                Match="NavLinkMatch.All"
+                                Class="@GetNavLinkClass(child)">
+                        @child.Text
+                    </MudNavLink>
+                }
+            </MudNavGroup>
+        }
+        else
+        {
+            <MudNavLink Href="@item.NavigateUrl"
+                        Match="NavLinkMatch.All"
+                        Class="@GetNavLinkClass(item)">
+                @item.Text
+            </MudNavLink>
+        }
+    }
+</MudNavMenu>
+
+@code {
+    private List<NavigationItem> MenuItems { get; set; } = new();
+    private HashSet<string> ExpandedGroups { get; set; } = new();
+    private string? CurrentPath { get; set; }
+
+    protected override void OnInitialized()
+    {
+        LoadMenuItems();
+        UpdateCurrentPath();
+        ExpandGroupsContainingCurrentPath();
+        ModuleState.OnModuleChanged += OnModuleChanged;
+        ModuleState.OnSidebarToggled += OnSidebarToggled;
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnModuleChanged()
+    {
+        LoadMenuItems();
+        ExpandedGroups.Clear();
+        UpdateCurrentPath();
+        ExpandGroupsContainingCurrentPath();
+        StateHasChanged();
+    }
+
+    private void OnSidebarToggled()
+    {
+        StateHasChanged();
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateCurrentPath();
+        ExpandGroupsContainingCurrentPath();
+        StateHasChanged();
+    }
+
+    private void UpdateCurrentPath()
+    {
+        CurrentPath = "/" + NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+    }
+
+    private void ExpandGroupsContainingCurrentPath()
+    {
+        if (string.IsNullOrEmpty(CurrentPath)) return;
+
+        foreach (var item in MenuItems)
+        {
+            if (item.Children != null && item.Children.Any(c => c.NavigateUrl?.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase) == true))
+            {
+                ExpandedGroups.Add(item.Id);
+            }
+        }
+    }
+
+    private bool IsGroupExpanded(NavigationItem item)
+    {
+        return ExpandedGroups.Contains(item.Id);
+    }
+
+    private void OnGroupExpandedChanged(NavigationItem item, bool expanded)
+    {
+        if (expanded)
+        {
+            ExpandedGroups.Add(item.Id);
+        }
+        else
+        {
+            ExpandedGroups.Remove(item.Id);
+        }
+    }
+
+    private string GetNavLinkClass(NavigationItem item)
+    {
+        var isActive = item.NavigateUrl?.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase) == true;
+        return isActive ? "nav-link-active" : "";
+    }
+
+    private void LoadMenuItems()
+    {
+        MenuItems = ModuleState.CurrentModule switch
+        {
+            "Liq" => GetLiqMenuItems(),
+            "SEC" => GetSecMenuItems(),
+            "Lux" => GetLuxMenuItems(),
+            "Misc" => GetMiscMenuItems(),
+            _ => GetLiqMenuItems()
+        };
+    }
+
+    private List<NavigationItem> GetLiqMenuItems()
+    {
+        return new List<NavigationItem>
+        {
+            new NavigationItem
+            {
+                Id = "liq-1",
+                Text = "Dashboard",
+                NavigateUrl = "/liq/dashboard"
+            },
+            new NavigationItem
+            {
+                Id = "liq-2",
+                Text = "Reports",
+                NavigateUrl = "#",
+                Children = new List<NavigationItem>
+                {
+                    new NavigationItem { Id = "liq-2-1", Text = "Daily Report", NavigateUrl = "/liq/reports/daily" },
+                    new NavigationItem { Id = "liq-2-2", Text = "Weekly Report", NavigateUrl = "/liq/reports/weekly" },
+                    new NavigationItem { Id = "liq-2-3", Text = "Monthly Report", NavigateUrl = "/liq/reports/monthly" }
+                }
+            },
+            new NavigationItem
+            {
+                Id = "liq-3",
+                Text = "Risk Analysis",
+                NavigateUrl = "/liq/risk-analysis"
+            },
+            new NavigationItem
+            {
+                Id = "liq-4",
+                Text = "Settings",
+                NavigateUrl = "/liq/settings"
+            }
+        };
+    }
+
+    private List<NavigationItem> GetSecMenuItems()
+    {
+        return new List<NavigationItem>
+        {
+            new NavigationItem
+            {
+                Id = "sec-1",
+                Text = "Overview",
+                NavigateUrl = "/sec/overview"
+            },
+            new NavigationItem
+            {
+                Id = "sec-2",
+                Text = "Compliance",
+                NavigateUrl = "#",
+                Children = new List<NavigationItem>
+                {
+                    new NavigationItem { Id = "sec-2-1", Text = "SEC Filings", NavigateUrl = "/sec/compliance/filings" },
+                    new NavigationItem { Id = "sec-2-2", Text = "Audit Trails", NavigateUrl = "/sec/compliance/audit" },
+                    new NavigationItem { Id = "sec-2-3", Text = "Regulatory Reports", NavigateUrl = "/sec/compliance/regulatory" }
+                }
+            },
+            new NavigationItem
+            {
+                Id = "sec-3",
+                Text = "Documentation",
+                NavigateUrl = "/sec/documentation"
+            }
+        };
+    }
+
+    private List<NavigationItem> GetLuxMenuItems()
+    {
+        return new List<NavigationItem>
+        {
+            new NavigationItem
+            {
+                Id = "lux-1",
+                Text = "Portfolio",
+                NavigateUrl = "/lux/portfolio"
+            },
+            new NavigationItem
+            {
+                Id = "lux-2",
+                Text = "Analytics",
+                NavigateUrl = "#",
+                Children = new List<NavigationItem>
+                {
+                    new NavigationItem { Id = "lux-2-1", Text = "Performance", NavigateUrl = "/lux/analytics/performance" },
+                    new NavigationItem { Id = "lux-2-2", Text = "Attribution", NavigateUrl = "/lux/analytics/attribution" },
+                    new NavigationItem { Id = "lux-2-3", Text = "Risk Metrics", NavigateUrl = "/lux/analytics/risk" }
+                }
+            },
+            new NavigationItem
+            {
+                Id = "lux-3",
+                Text = "Administration",
+                NavigateUrl = "/lux/administration"
+            }
+        };
+    }
+
+    private List<NavigationItem> GetMiscMenuItems()
+    {
+        return new List<NavigationItem>
+        {
+            new NavigationItem
+            {
+                Id = "misc-1",
+                Text = "Tools",
+                NavigateUrl = "#",
+                Children = new List<NavigationItem>
+                {
+                    new NavigationItem { Id = "misc-1-1", Text = "Calculator", NavigateUrl = "/misc/tools/calculator" },
+                    new NavigationItem { Id = "misc-1-2", Text = "Import/Export", NavigateUrl = "/misc/tools/import-export" }
+                }
+            },
+            new NavigationItem
+            {
+                Id = "misc-2",
+                Text = "Help",
+                NavigateUrl = "/misc/help"
+            },
+            new NavigationItem
+            {
+                Id = "misc-3",
+                Text = "About",
+                NavigateUrl = "/misc/about"
+            }
+        };
+    }
+
+    public void Dispose()
+    {
+        ModuleState.OnModuleChanged -= OnModuleChanged;
+        ModuleState.OnSidebarToggled -= OnSidebarToggled;
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+    public class NavigationItem
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Text { get; set; } = string.Empty;
+        public string NavigateUrl { get; set; } = string.Empty;
+        public List<NavigationItem>? Children { get; set; }
+    }
+}

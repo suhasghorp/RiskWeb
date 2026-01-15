@@ -1,0 +1,35 @@
+@page "/"
+
+<PageTitle>Home - RiskWeb</PageTitle>
+
+<MudDataGrid Items="@Orders" Striped="true" Bordered="true" Dense="true">
+    <Columns>
+        <PropertyColumn Property="x => x.OrderID" Title="Order ID" />
+        <PropertyColumn Property="x => x.CustomerID" Title="Customer ID" />
+        <PropertyColumn Property="x => x.OrderDate" Title="Order Date" Format="d" />
+        <PropertyColumn Property="x => x.Freight" Title="Freight" Format="N2" />
+    </Columns>
+</MudDataGrid>
+
+@code {
+    public List<Order> Orders { get; set; } = new();
+
+    protected override void OnInitialized()
+    {
+        Orders = Enumerable.Range(1, 10).Select(x => new Order()
+            {
+                OrderID = 1000 + x,
+                CustomerID = (new string[] { "ALFKI", "ANANTR", "ANTON", "BLONP", "BOLID" })[new Random().Next(5)],
+                Freight = 2 * x,
+                OrderDate = DateTime.Now.AddDays(-x),
+            }).ToList();
+    }
+
+    public class Order
+    {
+        public int? OrderID { get; set; }
+        public string CustomerID { get; set; } = string.Empty;
+        public DateTime? OrderDate { get; set; }
+        public double? Freight { get; set; }
+    }
+}

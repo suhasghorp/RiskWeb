@@ -1,0 +1,81 @@
+@using RiskWeb.Services
+@inherits LayoutComponentBase
+@inject ModuleStateService ModuleState
+@implements IDisposable
+
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="riskweb-layout">
+    <Header />
+
+    <div class="riskweb-content-wrapper">
+        <div class="riskweb-sidebar @(ModuleState.SidebarCollapsed ? "collapsed" : "")">
+            <button class="sidebar-toggle" @onclick="ToggleSidebar">
+                @if (ModuleState.SidebarCollapsed)
+                {
+                    <span>&#9654;</span>
+                }
+                else
+                {
+                    <span>&#9664;</span>
+                }
+            </button>
+            @if (!ModuleState.SidebarCollapsed)
+            {
+                <NavMenu />
+            }
+        </div>
+
+        <main class="riskweb-main">
+            <article class="riskweb-body">
+                @Body
+            </article>
+        </main>
+    </div>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private MudTheme _theme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#1E9BD7",
+            PrimaryContrastText = "#FFFFFF",
+            AppbarBackground = "#1E9BD7",
+            AppbarText = "#FFFFFF",
+            DrawerBackground = "#1E9BD7",
+            DrawerText = "#FFFFFF",
+            DrawerIcon = "#FFFFFF",
+            Surface = "#FFFFFF",
+            Background = "#F5F5F5"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#1E9BD7"
+        }
+    };
+
+    protected override void OnInitialized()
+    {
+        ModuleState.OnSidebarToggled += StateHasChanged;
+    }
+
+    private void ToggleSidebar()
+    {
+        ModuleState.ToggleSidebar();
+    }
+
+    public void Dispose()
+    {
+        ModuleState.OnSidebarToggled -= StateHasChanged;
+    }
+}

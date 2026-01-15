@@ -1,0 +1,300 @@
+@page "/liq/dashboard"
+@using Microsoft.EntityFrameworkCore
+@using MudBlazor
+@using RiskWeb.Data
+@using RiskWeb.Models
+@using ClosedXML.Excel
+
+@inject ApplicationDbContext DbContext
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Dashboard - Liq</PageTitle>
+
+<div class="dashboard-container">
+    <MudText Typo="Typo.h5" Class="mb-4">Employee Management</MudText>
+
+    <MudStack Row="true" Class="mb-3" Spacing="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddDialog">
+            Add Employee
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportToExcel">
+            Export to Excel
+        </MudButton>
+    </MudStack>
+
+    <MudDataGrid @ref="_dataGrid"
+                 T="Employee"
+                 Items="@Employees"
+                 SortMode="SortMode.Multiple"
+                 Filterable="true"
+                 FilterMode="DataGridFilterMode.Simple"
+                 Striped="true"
+                 Bordered="true"
+                 Dense="true">
+        <Columns>
+            <PropertyColumn Property="x => x.EmployeeID" Title="Employee ID" Filterable="false" />
+            <PropertyColumn Property="x => x.FirstName" Title="First Name" />
+            <PropertyColumn Property="x => x.LastName" Title="Last Name" />
+            <PropertyColumn Property="x => x.Title" Title="Title" />
+            <PropertyColumn Property="x => x.TitleOfCourtesy" Title="Title Of Courtesy" />
+            <PropertyColumn Property="x => x.BirthDate" Title="Birth Date" Format="d" />
+            <PropertyColumn Property="x => x.HireDate" Title="Hire Date" Format="d" />
+            <PropertyColumn Property="x => x.Address" Title="Address" />
+            <PropertyColumn Property="x => x.City" Title="City" />
+            <PropertyColumn Property="x => x.Region" Title="Region" />
+            <PropertyColumn Property="x => x.PostalCode" Title="Postal Code" />
+            <PropertyColumn Property="x => x.Country" Title="Country" />
+            <PropertyColumn Property="x => x.HomePhone" Title="Home Phone" />
+            <PropertyColumn Property="x => x.Extension" Title="Extension" />
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudStack Row="true">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="@(() => OpenEditDialog(context.Item))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => DeleteEmployee(context.Item))" />
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="Employee" PageSizeOptions="new int[] { 10, 15, 25, 50 }" />
+        </PagerContent>
+    </MudDataGrid>
+</div>
+
+@code {
+    private MudDataGrid<Employee>? _dataGrid;
+    private List<Employee> Employees = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEmployees();
+    }
+
+    private async Task LoadEmployees()
+    {
+        try
+        {
+            Employees = await DbContext.Employees.ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load employees: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters<EmployeeDialog>
+        {
+            { x => x.Employee, new Employee() },
+            { x => x.IsEdit, false }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<EmployeeDialog>("Add Employee", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is Employee newEmployee)
+        {
+            await AddEmployee(newEmployee);
+        }
+    }
+
+    private async Task OpenEditDialog(Employee employee)
+    {
+        var editEmployee = new Employee
+        {
+            EmployeeID = employee.EmployeeID,
+            FirstName = employee.FirstName,
+            LastName = employee.LastName,
+            Title = employee.Title,
+            TitleOfCourtesy = employee.TitleOfCourtesy,
+            BirthDate = employee.BirthDate,
+            HireDate = employee.HireDate,
+            Address = employee.Address,
+            City = employee.City,
+            Region = employee.Region,
+            PostalCode = employee.PostalCode,
+            Country = employee.Country,
+            HomePhone = employee.HomePhone,
+            Extension = employee.Extension
+        };
+
+        var parameters = new DialogParameters<EmployeeDialog>
+        {
+            { x => x.Employee, editEmployee },
+            { x => x.IsEdit, true }
+        };
+
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<EmployeeDialog>("Edit Employee", parameters, options);
+        var result = await dialog.Result;
+
+        if (result != null && !result.Canceled && result.Data is Employee updatedEmployee)
+        {
+            await UpdateEmployee(updatedEmployee);
+        }
+    }
+
+    private async Task AddEmployee(Employee employee)
+    {
+        try
+        {
+            DbContext.Employees.Add(employee);
+            await DbContext.SaveChangesAsync();
+            Snackbar.Add("Employee added successfully.", Severity.Success);
+            await LoadEmployees();
+        }
+        catch (DbUpdateException ex)
+        {
+            var errorMessage = ex.InnerException?.Message ?? ex.Message;
+            Snackbar.Add($"Database Error: {errorMessage}", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UpdateEmployee(Employee employee)
+    {
+        try
+        {
+            var existingEmployee = await DbContext.Employees.FindAsync(employee.EmployeeID);
+            if (existingEmployee != null)
+            {
+                existingEmployee.FirstName = employee.FirstName;
+                existingEmployee.LastName = employee.LastName;
+                existingEmployee.Title = employee.Title;
+                existingEmployee.TitleOfCourtesy = employee.TitleOfCourtesy;
+                existingEmployee.BirthDate = employee.BirthDate;
+                existingEmployee.HireDate = employee.HireDate;
+                existingEmployee.Address = employee.Address;
+                existingEmployee.City = employee.City;
+                existingEmployee.Region = employee.Region;
+                existingEmployee.PostalCode = employee.PostalCode;
+                existingEmployee.Country = employee.Country;
+                existingEmployee.HomePhone = employee.HomePhone;
+                existingEmployee.Extension = employee.Extension;
+
+                await DbContext.SaveChangesAsync();
+                Snackbar.Add("Employee updated successfully.", Severity.Success);
+                await LoadEmployees();
+            }
+        }
+        catch (DbUpdateException ex)
+        {
+            var errorMessage = ex.InnerException?.Message ?? ex.Message;
+            Snackbar.Add($"Database Error: {errorMessage}", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteEmployee(Employee employee)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Delete Confirmation",
+            $"Are you sure you want to delete {employee.FirstName} {employee.LastName}?",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            try
+            {
+                var existingEmployee = await DbContext.Employees.FindAsync(employee.EmployeeID);
+                if (existingEmployee != null)
+                {
+                    DbContext.Employees.Remove(existingEmployee);
+                    await DbContext.SaveChangesAsync();
+                    Snackbar.Add("Employee deleted successfully.", Severity.Success);
+                    await LoadEmployees();
+                }
+            }
+            catch (DbUpdateException ex)
+            {
+                var errorMessage = ex.InnerException?.Message ?? ex.Message;
+                Snackbar.Add($"Database Error: {errorMessage}", Severity.Error);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Employees");
+
+            // Add headers
+            worksheet.Cell(1, 1).Value = "Employee ID";
+            worksheet.Cell(1, 2).Value = "First Name";
+            worksheet.Cell(1, 3).Value = "Last Name";
+            worksheet.Cell(1, 4).Value = "Title";
+            worksheet.Cell(1, 5).Value = "Title Of Courtesy";
+            worksheet.Cell(1, 6).Value = "Birth Date";
+            worksheet.Cell(1, 7).Value = "Hire Date";
+            worksheet.Cell(1, 8).Value = "Address";
+            worksheet.Cell(1, 9).Value = "City";
+            worksheet.Cell(1, 10).Value = "Region";
+            worksheet.Cell(1, 11).Value = "Postal Code";
+            worksheet.Cell(1, 12).Value = "Country";
+            worksheet.Cell(1, 13).Value = "Home Phone";
+            worksheet.Cell(1, 14).Value = "Extension";
+
+            // Style header row
+            var headerRange = worksheet.Range(1, 1, 1, 14);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#1E9BD7");
+            headerRange.Style.Font.FontColor = XLColor.White;
+
+            // Add data
+            int row = 2;
+            foreach (var employee in Employees)
+            {
+                worksheet.Cell(row, 1).Value = employee.EmployeeID;
+                worksheet.Cell(row, 2).Value = employee.FirstName;
+                worksheet.Cell(row, 3).Value = employee.LastName;
+                worksheet.Cell(row, 4).Value = employee.Title;
+                worksheet.Cell(row, 5).Value = employee.TitleOfCourtesy;
+                worksheet.Cell(row, 6).Value = employee.BirthDate?.ToString("MM/dd/yyyy") ?? "";
+                worksheet.Cell(row, 7).Value = employee.HireDate?.ToString("MM/dd/yyyy") ?? "";
+                worksheet.Cell(row, 8).Value = employee.Address;
+                worksheet.Cell(row, 9).Value = employee.City;
+                worksheet.Cell(row, 10).Value = employee.Region;
+                worksheet.Cell(row, 11).Value = employee.PostalCode;
+                worksheet.Cell(row, 12).Value = employee.Country;
+                worksheet.Cell(row, 13).Value = employee.HomePhone;
+                worksheet.Cell(row, 14).Value = employee.Extension;
+                row++;
+            }
+
+            // Auto-fit columns
+            worksheet.Columns().AdjustToContents();
+
+            // Convert to byte array
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            var content = stream.ToArray();
+
+            // Download file via JavaScript
+            var fileName = $"Employees_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            await JSRuntime.InvokeVoidAsync("downloadFileFromStream", fileName, Convert.ToBase64String(content));
+
+            Snackbar.Add("Excel file exported successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+}

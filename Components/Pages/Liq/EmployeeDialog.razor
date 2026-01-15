@@ -1,0 +1,108 @@
+@using MudBlazor
+@using RiskWeb.Models
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            @(IsEdit ? "Edit Employee" : "Add Employee")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_isValid">
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Employee.FirstName"
+                    Label="First Name"
+                    Required="true"
+                    RequiredError="First Name is required" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Employee.LastName"
+                    Label="Last Name"
+                    Required="true"
+                    RequiredError="Last Name is required" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Employee.Title"
+                    Label="Title" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="Employee.TitleOfCourtesy"
+                    Label="Title Of Courtesy" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="Employee.BirthDate"
+                    Label="Birth Date"
+                    DateFormat="MM/dd/yyyy" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="Employee.HireDate"
+                    Label="Hire Date"
+                    DateFormat="MM/dd/yyyy" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Employee.Address"
+                    Label="Address" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="Employee.City"
+                    Label="City" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="Employee.Region"
+                    Label="Region" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="Employee.PostalCode"
+                    Label="Postal Code" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="Employee.Country"
+                    Label="Country" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="Employee.HomePhone"
+                    Label="Home Phone" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="Employee.Extension"
+                    Label="Extension" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit" Disabled="@(!_isValid)">
+            @(IsEdit ? "Update" : "Add")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private MudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public Employee Employee { get; set; } = new();
+
+    [Parameter]
+    public bool IsEdit { get; set; }
+
+    private MudForm? _form;
+    private bool _isValid;
+
+    private void Cancel() => MudDialog?.Cancel();
+
+    private async Task Submit()
+    {
+        if (_form != null)
+        {
+            await _form.Validate();
+            if (_isValid)
+            {
+                MudDialog?.Close(DialogResult.Ok(Employee));
+            }
+        }
+    }
+}

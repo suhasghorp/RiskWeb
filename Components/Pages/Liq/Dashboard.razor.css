@@ -1,0 +1,15 @@
+.dashboard-container {
+    padding: 20px;
+}
+
+.dashboard-container ::deep .mud-table {
+    background-color: #ffffff;
+}
+
+.dashboard-container ::deep .mud-table-head {
+    background-color: #f5f5f5;
+}
+
+.dashboard-container ::deep .mud-table-row:hover {
+    background-color: rgba(30, 155, 215, 0.08);
+}

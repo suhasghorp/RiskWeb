@@ -1,0 +1,89 @@
+@using RiskWeb.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ModuleStateService ModuleState
+
+<AuthorizeView>
+    <Authorized>
+        <header class="riskweb-header">
+            <div class="header-top-row">
+                <div class="header-logo">
+                    <img src="images/ABLogoHorizRev.png" alt="AllianceBernstein" />
+                </div>
+
+                <div class="header-title">
+                    RiskWeb
+                </div>
+
+                <div class="header-user">
+                    @context.User.Identity?.Name
+                </div>
+            </div>
+
+            <div class="header-bottom-row">
+                <nav class="header-nav">
+                    <button class="module-link @(ModuleState.CurrentModule == "Liq" ? "active" : "")"
+                            @onclick='() => SelectModule("Liq")'>
+                        Liq
+                    </button>
+                    <button class="module-link @(ModuleState.CurrentModule == "SEC" ? "active" : "")"
+                            @onclick='() => SelectModule("SEC")'>
+                        SEC
+                    </button>
+                    <button class="module-link @(ModuleState.CurrentModule == "Lux" ? "active" : "")"
+                            @onclick='() => SelectModule("Lux")'>
+                        Lux
+                    </button>
+                    <button class="module-link @(ModuleState.CurrentModule == "Misc" ? "active" : "")"
+                            @onclick='() => SelectModule("Misc")'>
+                        Misc
+                    </button>
+                </nav>
+            </div>
+        </header>
+    </Authorized>
+    <NotAuthorized>
+        <header class="riskweb-header">
+            <div class="header-top-row">
+                <div class="header-logo">
+                    <img src="images/ABLogoHorizRev.png" alt="AllianceBernstein" />
+                </div>
+
+                <div class="header-title">
+                    RiskWeb
+                </div>
+
+                <div class="header-user">
+                    Guest
+                </div>
+            </div>
+
+            <div class="header-bottom-row">
+                <nav class="header-nav">
+                    <button class="module-link @(ModuleState.CurrentModule == "Liq" ? "active" : "")"
+                            @onclick='() => SelectModule("Liq")'>
+                        Liq
+                    </button>
+                    <button class="module-link @(ModuleState.CurrentModule == "SEC" ? "active" : "")"
+                            @onclick='() => SelectModule("SEC")'>
+                        SEC
+                    </button>
+                    <button class="module-link @(ModuleState.CurrentModule == "Lux" ? "active" : "")"
+                            @onclick='() => SelectModule("Lux")'>
+                        Lux
+                    </button>
+                    <button class="module-link @(ModuleState.CurrentModule == "Misc" ? "active" : "")"
+                            @onclick='() => SelectModule("Misc")'>
+                        Misc
+                    </button>
+                </nav>
+            </div>
+        </header>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private void SelectModule(string module)
+    {
+        ModuleState.CurrentModule = module;
+    }
+}
