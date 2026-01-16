@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using RiskWeb.Data;
 
@@ -6,23 +7,25 @@ namespace RiskWeb.Services;
 public class UserRoleService : IUserRoleService
 {
     private readonly ApplicationDbContext _dbContext;
-    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly AuthenticationStateProvider _authStateProvider;
     private readonly ILogger<UserRoleService> _logger;
 
-    public UserRoleService(ApplicationDbContext dbContext, IHttpContextAccessor httpContextAccessor, ILogger<UserRoleService> logger)
+    public UserRoleService(ApplicationDbContext dbContext, AuthenticationStateProvider authStateProvider, ILogger<UserRoleService> logger)
     {
         _dbContext = dbContext;
-        _httpContextAccessor = httpContextAccessor;
+        _authStateProvider = authStateProvider;
         _logger = logger;
     }
 
-    public string? GetCurrentUsername()
+    public async Task<string?> GetCurrentUsernameAsync()
     {
-        var httpContext = _httpContextAccessor.HttpContext;
-        var identity = httpContext?.User?.Identity;
+        _logger.LogInformation("=== GetCurrentUsernameAsync Debug ===");
 
-        _logger.LogInformation("=== GetCurrentUsername Debug ===");
-        _logger.LogInformation("HttpContext is null: {IsNull}", httpContext == null);
+        var authState = await _authStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var identity = user.Identity;
+
+        _logger.LogInformation("AuthState User is null: {IsNull}", user == null);
         _logger.LogInformation("User Identity is null: {IsNull}", identity == null);
         _logger.LogInformation("Identity.IsAuthenticated: {IsAuth}", identity?.IsAuthenticated);
         _logger.LogInformation("Identity.AuthenticationType: {AuthType}", identity?.AuthenticationType);
@@ -91,7 +94,7 @@ public class UserRoleService : IUserRoleService
     {
         _logger.LogInformation("=== IsCurrentUserLiqAdminAsync Called ===");
 
-        var username = GetCurrentUsername();
+        var username = await GetCurrentUsernameAsync();
 
         if (string.IsNullOrWhiteSpace(username))
         {

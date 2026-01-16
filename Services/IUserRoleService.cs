@@ -4,5 +4,5 @@ public interface IUserRoleService
 {
     Task<bool> IsUserInRoleAsync(string windowsUsername, string roleName);
     Task<bool> IsCurrentUserLiqAdminAsync();
-    string? GetCurrentUsername();
+    Task<string?> GetCurrentUsernameAsync();
 }
