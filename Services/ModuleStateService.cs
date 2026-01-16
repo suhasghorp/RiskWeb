@@ -2,7 +2,7 @@ namespace RiskWeb.Services;
 
 public class ModuleStateService
 {
-    private string _currentModule = "Liq";
+    private string _currentModule = "Liquidity";
     private bool _sidebarCollapsed = false;
     private string? _selectedNodeId = null;
 

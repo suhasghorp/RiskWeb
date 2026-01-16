@@ -81,78 +81,78 @@ h1:focus {
 .riskweb-header {
     background-color: var(--riskweb-blue);
     color: var(--text-primary);
-    display: flex;
-    flex-direction: column;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     z-index: 1000;
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
 }
 
-.header-top-row {
+.header-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: 100%;
-    padding: 0 20px;
-    position: relative;
+    height: 100%;
+    padding: 0 15px;
+    flex-wrap: nowrap !important;
+    overflow: hidden;
 }
 
-.header-bottom-row {
+.header-left {
     display: flex;
-    justify-content: center;
-    width: 100%;
-    padding: 0 20px 15px 20px;
-    margin-top: -5px;
+    align-items: center;
+    gap: 15px;
+    height: 100%;
+    flex-wrap: nowrap !important;
 }
 
 .header-logo {
     display: flex;
     align-items: center;
-    flex-shrink: 0;
+    height: 100%;
 }
 
 .header-logo img {
-    height: 100px;
-    padding: 10px;
-    display: block;
+    height: 40px;
+    width: auto;
 }
 
 .header-title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 32px;
+    font-size: 22px;
     font-weight: 600;
     color: var(--text-primary);
-    letter-spacing: 0.5px;
     white-space: nowrap;
-}
-
-.header-user {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-primary);
-    padding: 8px 15px;
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    flex-shrink: 0;
 }
 
 .header-nav {
     display: flex;
-    gap: 5px;
-    justify-content: center;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: nowrap !important;
+}
+
+.header-user {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    padding: 4px 10px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-left: auto;
 }
 
 .module-link {
     background: none;
     border: none;
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 500;
-    padding: 10px 20px;
+    padding: 5px 12px;
     cursor: pointer;
     transition: all 0.2s ease;
     border-radius: 4px;
+    white-space: nowrap;
 }
 
 .module-link:hover {

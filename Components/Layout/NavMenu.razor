@@ -111,47 +111,47 @@
     {
         MenuItems = ModuleState.CurrentModule switch
         {
-            "Liq" => GetLiqMenuItems(),
+            "Liquidity" => GetLiquidityMenuItems(),
             "SEC" => GetSecMenuItems(),
             "Lux" => GetLuxMenuItems(),
             "Misc" => GetMiscMenuItems(),
-            _ => GetLiqMenuItems()
+            _ => GetLiquidityMenuItems()
         };
     }
 
-    private List<NavigationItem> GetLiqMenuItems()
+    private List<NavigationItem> GetLiquidityMenuItems()
     {
         return new List<NavigationItem>
         {
             new NavigationItem
             {
-                Id = "liq-1",
+                Id = "liquidity-1",
                 Text = "Dashboard",
-                NavigateUrl = "/liq/dashboard"
+                NavigateUrl = "/liquidity/dashboard"
             },
             new NavigationItem
             {
-                Id = "liq-2",
+                Id = "liquidity-2",
                 Text = "Reports",
                 NavigateUrl = "#",
                 Children = new List<NavigationItem>
                 {
-                    new NavigationItem { Id = "liq-2-1", Text = "Daily Report", NavigateUrl = "/liq/reports/daily" },
-                    new NavigationItem { Id = "liq-2-2", Text = "Weekly Report", NavigateUrl = "/liq/reports/weekly" },
-                    new NavigationItem { Id = "liq-2-3", Text = "Monthly Report", NavigateUrl = "/liq/reports/monthly" }
+                    new NavigationItem { Id = "liquidity-2-1", Text = "Daily Report", NavigateUrl = "/liquidity/reports/daily" },
+                    new NavigationItem { Id = "liquidity-2-2", Text = "Weekly Report", NavigateUrl = "/liquidity/reports/weekly" },
+                    new NavigationItem { Id = "liquidity-2-3", Text = "Monthly Report", NavigateUrl = "/liquidity/reports/monthly" }
                 }
             },
             new NavigationItem
             {
-                Id = "liq-3",
+                Id = "liquidity-3",
                 Text = "Risk Analysis",
-                NavigateUrl = "/liq/risk-analysis"
+                NavigateUrl = "/liquidity/risk-analysis"
             },
             new NavigationItem
             {
-                Id = "liq-4",
+                Id = "liquidity-4",
                 Text = "Settings",
-                NavigateUrl = "/liq/settings"
+                NavigateUrl = "/liquidity/settings"
             }
         };
     }
