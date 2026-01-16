@@ -4,8 +4,26 @@ using MudBlazor.Services;
 using RiskWeb.Components;
 using RiskWeb.Data;
 using RiskWeb.Services;
+using Serilog;
+using Serilog.Events;
+
+// Configure Serilog for real-time file logging
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+    .WriteTo.Console()
+    .WriteTo.File(
+        path: Path.Combine(AppContext.BaseDirectory, "logs", "riskweb-.log"),
+        rollingInterval: RollingInterval.Day,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+        flushToDiskInterval: TimeSpan.FromSeconds(1))  // Flush every second for real-time logging
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Use Serilog for logging
+builder.Host.UseSerilog();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
