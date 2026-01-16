@@ -26,7 +26,7 @@ a, .btn-link {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 .content {
@@ -112,10 +112,10 @@ h1:focus {
     height: 100%;
 }
 
-.header-logo img {
-    height: 40px;
-    width: auto;
-}
+    .header-logo img {
+        height: 40px;
+        width: auto;
+    }
 
 .header-title {
     font-size: 22px;
@@ -155,15 +155,15 @@ h1:focus {
     white-space: nowrap;
 }
 
-.module-link:hover {
-    background-color: rgba(255, 191, 39, 0.2);
-    color: var(--riskweb-gold);
-}
+    .module-link:hover {
+        background-color: rgba(255, 191, 39, 0.2);
+        color: var(--riskweb-gold);
+    }
 
-.module-link.active {
-    background-color: var(--riskweb-gold);
-    color: #000000;
-}
+    .module-link.active {
+        background-color: var(--riskweb-gold);
+        color: #000000;
+    }
 
 /* Sidebar Styles */
 .riskweb-sidebar {
@@ -177,9 +177,9 @@ h1:focus {
     transition: width 0.3s ease;
 }
 
-.riskweb-sidebar.collapsed {
-    width: 50px;
-}
+    .riskweb-sidebar.collapsed {
+        width: 50px;
+    }
 
 .sidebar-toggle {
     position: absolute;
@@ -200,10 +200,10 @@ h1:focus {
     transition: all 0.2s ease;
 }
 
-.sidebar-toggle:hover {
-    background-color: var(--riskweb-gold);
-    color: #000000;
-}
+    .sidebar-toggle:hover {
+        background-color: var(--riskweb-gold);
+        color: #000000;
+    }
 
 .riskweb-sidebar.collapsed .sidebar-toggle {
     right: 10px;
@@ -255,10 +255,10 @@ h1:focus {
     border-radius: 4px;
 }
 
-.riskweb-sidebar::-webkit-scrollbar-thumb:hover,
-.riskweb-main::-webkit-scrollbar-thumb:hover {
-    background: var(--riskweb-blue);
-}
+    .riskweb-sidebar::-webkit-scrollbar-thumb:hover,
+    .riskweb-main::-webkit-scrollbar-thumb:hover {
+        background: var(--riskweb-blue);
+    }
 
 /* MudBlazor NavMenu Overrides for Sidebar */
 .riskweb-sidebar .mud-navmenu,
@@ -266,37 +266,37 @@ h1:focus {
     background-color: transparent !important;
 }
 
-.riskweb-sidebar .mud-nav-link,
-.riskweb-sidebar .mud-navmenu .mud-nav-link,
-.riskweb-sidebar a.mud-nav-link {
-    color: #FFFFFF !important;
-    background-color: transparent !important;
-}
+    .riskweb-sidebar .mud-nav-link,
+    .riskweb-sidebar .mud-navmenu .mud-nav-link,
+    .riskweb-sidebar a.mud-nav-link {
+        color: #FFFFFF !important;
+        background-color: transparent !important;
+    }
 
-.riskweb-sidebar .mud-nav-link:hover,
-.riskweb-sidebar .mud-navmenu .mud-nav-link:hover,
-.riskweb-sidebar a.mud-nav-link:hover {
-    background-color: rgba(255, 255, 255, 0.15) !important;
-    color: #FFFFFF !important;
-}
+        .riskweb-sidebar .mud-nav-link:hover,
+        .riskweb-sidebar .mud-navmenu .mud-nav-link:hover,
+        .riskweb-sidebar a.mud-nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.15) !important;
+            color: #FFFFFF !important;
+        }
 
-.riskweb-sidebar .mud-nav-link.active,
-.riskweb-sidebar .mud-navmenu .mud-nav-link.active,
-.riskweb-sidebar a.mud-nav-link.active,
-.riskweb-sidebar .mud-nav-link.mud-ripple.active {
-    background-color: transparent !important;
-    color: #FFFFFF !important;
-    font-weight: 700 !important;
-}
+        .riskweb-sidebar .mud-nav-link.active,
+        .riskweb-sidebar .mud-navmenu .mud-nav-link.active,
+        .riskweb-sidebar a.mud-nav-link.active,
+        .riskweb-sidebar .mud-nav-link.mud-ripple.active {
+            background-color: transparent !important;
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+        }
 
-.riskweb-sidebar .mud-nav-link.active .mud-nav-link-text,
-.riskweb-sidebar .mud-navmenu .mud-nav-link.active .mud-nav-link-text {
-    font-weight: 700 !important;
-    text-decoration: underline !important;
-    text-decoration-color: #FFBF27 !important;
-    text-decoration-thickness: 3px !important;
-    text-underline-offset: 4px !important;
-}
+            .riskweb-sidebar .mud-nav-link.active .mud-nav-link-text,
+            .riskweb-sidebar .mud-navmenu .mud-nav-link.active .mud-nav-link-text {
+                font-weight: 700 !important;
+                text-decoration: underline !important;
+                text-decoration-color: #FFBF27 !important;
+                text-decoration-thickness: 3px !important;
+                text-underline-offset: 4px !important;
+            }
 
 .riskweb-sidebar .mud-nav-group .mud-nav-link-text,
 .riskweb-sidebar .mud-nav-group-title,
@@ -314,10 +314,10 @@ h1:focus {
     color: #FFFFFF !important;
 }
 
-.riskweb-sidebar .mud-expand-panel-header:hover,
-.riskweb-sidebar .mud-list-item:hover {
-    background-color: rgba(255, 255, 255, 0.15) !important;
-}
+    .riskweb-sidebar .mud-expand-panel-header:hover,
+    .riskweb-sidebar .mud-list-item:hover {
+        background-color: rgba(255, 255, 255, 0.15) !important;
+    }
 
 .riskweb-sidebar .mud-icon-button,
 .riskweb-sidebar .mud-list-item-icon,

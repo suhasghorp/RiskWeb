@@ -2,60 +2,60 @@
     padding: 0.5rem;
 }
 
-.nav-menu ::deep .mud-nav-link {
-    color: #FFFFFF;
-    border-radius: 4px;
-    margin: 2px 0;
-}
+    .nav-menu ::deep .mud-nav-link {
+        color: #FFFFFF;
+        border-radius: 4px;
+        margin: 2px 0;
+    }
 
-.nav-menu ::deep .mud-nav-link:hover {
-    background-color: rgba(255, 255, 255, 0.15);
-    color: #FFFFFF;
-}
+        .nav-menu ::deep .mud-nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #FFFFFF;
+        }
 
-.nav-menu ::deep .mud-nav-link.active,
-.nav-menu ::deep .mud-navlink-active {
-    background-color: transparent !important;
-    color: #FFFFFF !important;
-    font-weight: bold !important;
-    border-bottom: 3px solid #FFBF27 !important;
-    border-radius: 0 !important;
-}
+        .nav-menu ::deep .mud-nav-link.active,
+        .nav-menu ::deep .mud-navlink-active {
+            background-color: transparent !important;
+            color: #FFFFFF !important;
+            font-weight: bold !important;
+            border-bottom: 3px solid #FFBF27 !important;
+            border-radius: 0 !important;
+        }
 
-.nav-menu ::deep .nav-link-active {
-    background-color: transparent !important;
-    color: #FFFFFF !important;
-    font-weight: bold !important;
-    border-bottom: 3px solid #FFBF27 !important;
-    border-radius: 0 !important;
-}
+    .nav-menu ::deep .nav-link-active {
+        background-color: transparent !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+        border-bottom: 3px solid #FFBF27 !important;
+        border-radius: 0 !important;
+    }
 
-.nav-menu ::deep .mud-nav-group-title {
-    color: #FFFFFF;
-    font-weight: 500;
-}
+    .nav-menu ::deep .mud-nav-group-title {
+        color: #FFFFFF;
+        font-weight: 500;
+    }
 
-.nav-menu ::deep .mud-nav-group {
-    margin: 2px 0;
-}
+    .nav-menu ::deep .mud-nav-group {
+        margin: 2px 0;
+    }
 
-.nav-menu ::deep .mud-expand-panel-header {
-    padding: 8px 16px;
-    color: #FFFFFF;
-}
+    .nav-menu ::deep .mud-expand-panel-header {
+        padding: 8px 16px;
+        color: #FFFFFF;
+    }
 
-.nav-menu ::deep .mud-expand-panel-header:hover {
-    background-color: rgba(255, 255, 255, 0.15);
-}
+        .nav-menu ::deep .mud-expand-panel-header:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
 
-.nav-menu ::deep .mud-icon-button {
-    color: #FFFFFF !important;
-}
+    .nav-menu ::deep .mud-icon-button {
+        color: #FFFFFF !important;
+    }
 
-.nav-menu ::deep .mud-navmenu .mud-nav-link {
-    color: #FFFFFF;
-}
+    .nav-menu ::deep .mud-navmenu .mud-nav-link {
+        color: #FFFFFF;
+    }
 
-.nav-menu ::deep .mud-typography {
-    color: #FFFFFF;
-}
+    .nav-menu ::deep .mud-typography {
+        color: #FFFFFF;
+    }

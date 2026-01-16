@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(dotnet add package:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(dir \"C:\\\\suhas\\\\RiskWeb\\\\Components\\\\Pages\" /s)"
     ]
   }
 }

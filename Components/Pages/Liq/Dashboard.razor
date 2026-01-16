@@ -3,12 +3,14 @@
 @using MudBlazor
 @using RiskWeb.Data
 @using RiskWeb.Models
+@using RiskWeb.Services
 @using ClosedXML.Excel
 
 @inject ApplicationDbContext DbContext
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IJSRuntime JSRuntime
+@inject IUserRoleService UserRoleService
 
 <PageTitle>Dashboard - Liquidity</PageTitle>
 
@@ -16,9 +18,12 @@
     <MudText Typo="Typo.h5" Class="mb-4">Employee Management</MudText>
 
     <MudStack Row="true" Class="mb-3" Spacing="2">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddDialog">
-            Add Employee
-        </MudButton>
+        @if (_isLiqAdmin)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddDialog">
+                Add Employee
+            </MudButton>
+        }
         <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportToExcel">
             Export to Excel
         </MudButton>
@@ -48,14 +53,17 @@
             <PropertyColumn Property="x => x.Country" Title="Country" />
             <PropertyColumn Property="x => x.HomePhone" Title="Home Phone" />
             <PropertyColumn Property="x => x.Extension" Title="Extension" />
-            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
-                <CellTemplate>
-                    <MudStack Row="true">
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="@(() => OpenEditDialog(context.Item))" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => DeleteEmployee(context.Item))" />
-                    </MudStack>
-                </CellTemplate>
-            </TemplateColumn>
+            @if (_isLiqAdmin)
+            {
+                <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                    <CellTemplate>
+                        <MudStack Row="true">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="@(() => OpenEditDialog(context.Item))" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => DeleteEmployee(context.Item))" />
+                        </MudStack>
+                    </CellTemplate>
+                </TemplateColumn>
+            }
         </Columns>
         <PagerContent>
             <MudDataGridPager T="Employee" PageSizeOptions="new int[] { 10, 15, 25, 50 }" />
@@ -66,9 +74,11 @@
 @code {
     private MudDataGrid<Employee>? _dataGrid;
     private List<Employee> Employees = new();
+    private bool _isLiqAdmin = false;
 
     protected override async Task OnInitializedAsync()
     {
+        _isLiqAdmin = await UserRoleService.IsCurrentUserLiqAdminAsync();
         await LoadEmployees();
     }
 
@@ -140,6 +150,12 @@
 
     private async Task AddEmployee(Employee employee)
     {
+        if (!await UserRoleService.IsCurrentUserLiqAdminAsync())
+        {
+            Snackbar.Add("You do not have permission to add employees.", Severity.Error);
+            return;
+        }
+
         try
         {
             DbContext.Employees.Add(employee);
@@ -160,6 +176,12 @@
 
     private async Task UpdateEmployee(Employee employee)
     {
+        if (!await UserRoleService.IsCurrentUserLiqAdminAsync())
+        {
+            Snackbar.Add("You do not have permission to edit employees.", Severity.Error);
+            return;
+        }
+
         try
         {
             var existingEmployee = await DbContext.Employees.FindAsync(employee.EmployeeID);
@@ -197,6 +219,12 @@
 
     private async Task DeleteEmployee(Employee employee)
     {
+        if (!await UserRoleService.IsCurrentUserLiqAdminAsync())
+        {
+            Snackbar.Add("You do not have permission to delete employees.", Severity.Error);
+            return;
+        }
+
         var result = await DialogService.ShowMessageBox(
             "Delete Confirmation",
             $"Are you sure you want to delete {employee.FirstName} {employee.LastName}?",
