@@ -14,17 +14,34 @@
 
 <PageTitle>Dashboard - Liquidity</PageTitle>
 
+<style>
+    .employee-grid .mud-table-head .mud-table-cell {
+        font-weight: bold;
+        background-color: #f5f5f5;
+    }
+    .employee-grid .mud-table-body .mud-table-row:hover {
+        background-color: rgba(30, 155, 215, 0.15) !important; /* --riskweb-blue with 15% opacity */
+    }
+    .employee-grid .mud-table-body .mud-table-row.selected-row {
+        background-color: #1E9BD7 !important;
+        color: white;
+    }
+    .employee-grid .mud-table-body .mud-table-row.selected-row:hover {
+        background-color: #1E9BD7 !important;
+    }
+</style>
+
 <div class="dashboard-container">
     <MudText Typo="Typo.h5" Class="mb-4">Employee Management</MudText>
 
     <MudStack Row="true" Class="mb-3" Spacing="2">
         @if (_isLiqAdmin)
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddDialog">
+            <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAddDialog" Style="background-color: var(--riskweb-blue); color: white;">
                 Add Employee
             </MudButton>
         }
-        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportToExcel">
+        <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportToExcel" Style="background-color: var(--riskweb-blue); color: white;">
             Export to Excel
         </MudButton>
     </MudStack>
@@ -35,24 +52,29 @@
                  SortMode="SortMode.Multiple"
                  Filterable="true"
                  FilterMode="DataGridFilterMode.Simple"
-                 Striped="true"
                  Bordered="true"
-                 Dense="true">
+                 Dense="true"
+                 Hover="true"
+                 Class="employee-grid"
+                 RowClick="@OnRowClick"
+                 RowClassFunc="@GetRowClass"
+                 ShowColumnOptions="true"
+                 ColumnResizeMode="ResizeMode.Container">
         <Columns>
-            <PropertyColumn Property="x => x.EmployeeID" Title="Employee ID" Filterable="false" />
-            <PropertyColumn Property="x => x.FirstName" Title="First Name" />
-            <PropertyColumn Property="x => x.LastName" Title="Last Name" />
-            <PropertyColumn Property="x => x.Title" Title="Title" />
-            <PropertyColumn Property="x => x.TitleOfCourtesy" Title="Title Of Courtesy" />
-            <PropertyColumn Property="x => x.BirthDate" Title="Birth Date" Format="d" />
-            <PropertyColumn Property="x => x.HireDate" Title="Hire Date" Format="d" />
-            <PropertyColumn Property="x => x.Address" Title="Address" />
-            <PropertyColumn Property="x => x.City" Title="City" />
-            <PropertyColumn Property="x => x.Region" Title="Region" />
-            <PropertyColumn Property="x => x.PostalCode" Title="Postal Code" />
-            <PropertyColumn Property="x => x.Country" Title="Country" />
-            <PropertyColumn Property="x => x.HomePhone" Title="Home Phone" />
-            <PropertyColumn Property="x => x.Extension" Title="Extension" />
+            <PropertyColumn Property="x => x.EmployeeID" Title="Employee ID" Filterable="false" Hideable="true" />
+            <PropertyColumn Property="x => x.FirstName" Title="First Name" Hideable="true" />
+            <PropertyColumn Property="x => x.LastName" Title="Last Name" Hideable="true" />
+            <PropertyColumn Property="x => x.Title" Title="Title" Hideable="true" />
+            <PropertyColumn Property="x => x.TitleOfCourtesy" Title="Title Of Courtesy" Hideable="true" />
+            <PropertyColumn Property="x => x.BirthDate" Title="Birth Date" Format="d" Hideable="true" />
+            <PropertyColumn Property="x => x.HireDate" Title="Hire Date" Format="d" Hideable="true" />
+            <PropertyColumn Property="x => x.Address" Title="Address" Hideable="true" />
+            <PropertyColumn Property="x => x.City" Title="City" Hideable="true" />
+            <PropertyColumn Property="x => x.Region" Title="Region" Hideable="true" />
+            <PropertyColumn Property="x => x.PostalCode" Title="Postal Code" Hideable="true" />
+            <PropertyColumn Property="x => x.Country" Title="Country" Hideable="true" />
+            <PropertyColumn Property="x => x.HomePhone" Title="Home Phone" Hideable="true" />
+            <PropertyColumn Property="x => x.Extension" Title="Extension" Hideable="true" />
             @if (_isLiqAdmin)
             {
                 <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
@@ -75,6 +97,17 @@
     private MudDataGrid<Employee>? _dataGrid;
     private List<Employee> Employees = new();
     private bool _isLiqAdmin = false;
+    private Employee? _selectedEmployee;
+
+    private void OnRowClick(DataGridRowClickEventArgs<Employee> args)
+    {
+        _selectedEmployee = args.Item;
+    }
+
+    private string GetRowClass(Employee employee, int index)
+    {
+        return _selectedEmployee?.EmployeeID == employee.EmployeeID ? "selected-row" : "";
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -129,7 +162,9 @@
             PostalCode = employee.PostalCode,
             Country = employee.Country,
             HomePhone = employee.HomePhone,
-            Extension = employee.Extension
+            Extension = employee.Extension,
+            ModifiedBy = employee.ModifiedBy,
+            ModifiedOn = employee.ModifiedOn
         };
 
         var parameters = new DialogParameters<EmployeeDialog>
@@ -158,6 +193,10 @@
 
         try
         {
+            // Set audit fields
+            employee.ModifiedBy = await UserRoleService.GetCurrentUsernameAsync();
+            employee.ModifiedOn = DateTime.Now;
+
             DbContext.Employees.Add(employee);
             await DbContext.SaveChangesAsync();
             Snackbar.Add("Employee added successfully.", Severity.Success);
@@ -200,6 +239,10 @@
                 existingEmployee.Country = employee.Country;
                 existingEmployee.HomePhone = employee.HomePhone;
                 existingEmployee.Extension = employee.Extension;
+
+                // Set audit fields
+                existingEmployee.ModifiedBy = await UserRoleService.GetCurrentUsernameAsync();
+                existingEmployee.ModifiedOn = DateTime.Now;
 
                 await DbContext.SaveChangesAsync();
                 Snackbar.Add("Employee updated successfully.", Severity.Success);

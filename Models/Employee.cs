@@ -48,4 +48,9 @@ public class Employee
 
     [StringLength(4)]
     public string? Extension { get; set; }
+
+    [StringLength(100)]
+    public string? ModifiedBy { get; set; }
+
+    public DateTime? ModifiedOn { get; set; }
 }
