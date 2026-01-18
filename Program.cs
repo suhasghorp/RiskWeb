@@ -4,6 +4,7 @@ using MudBlazor.Services;
 using RiskWeb.Components;
 using RiskWeb.Data;
 using RiskWeb.Services;
+using RiskWeb.Services.Chat;
 using Serilog;
 using Serilog.Events;
 
@@ -45,6 +46,31 @@ builder.Services.AddScoped<IUserRoleService, UserRoleService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMudServices();
 
+// Chat services
+builder.Services.AddSingleton<IMongoDbService, MongoDbService>();
+builder.Services.AddSingleton<IChatSessionService, ChatSessionService>();
+
+// Register LLM client based on configuration
+var llmProvider = builder.Configuration["LlmProvider"] ?? "OpenRouter";
+Log.Information("Using LLM Provider: {Provider}", llmProvider);
+if (llmProvider.Equals("AzureOpenAI", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<ILlmClient, AzureOpenAiClient>();
+}
+else
+{
+    builder.Services.AddSingleton<ILlmClient, OpenRouterClient>();
+}
+
+builder.Services.AddSingleton<IExcelExportService, ExcelExportService>();
+builder.Services.AddSingleton<FindMoviesByGenreTool>();
+builder.Services.AddSingleton<FindMoviesByYearTool>();
+builder.Services.AddSingleton<FindMoviesByGenreAndYearTool>();
+builder.Services.AddSingleton<CountMoviesPerYearTool>();
+builder.Services.AddSingleton<ExportResultsToExcelTool>();
+builder.Services.AddSingleton<McpToolRegistry>();
+builder.Services.AddScoped<IQueryOrchestrator, QueryOrchestrator>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -62,6 +88,16 @@ app.UseAntiforgery();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Excel export download endpoint
+app.MapGet("/api/export/{fileId}", (string fileId, IExcelExportService exportService) =>
+{
+    var fileData = exportService.GetExportedFile(fileId);
+    if (fileData == null)
+        return Results.NotFound("Export file not found or expired");
+
+    return Results.File(fileData, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"export_{fileId}.xlsx");
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

@@ -1,0 +1,453 @@
+@page "/liquidity/chat"
+@using RiskWeb.Services.Chat
+@using RiskWeb.Models
+@using MongoDB.Bson
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IQueryOrchestrator QueryOrchestrator
+@inject IChatSessionService ChatSessionService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<Chat> Logger
+@rendermode InteractiveServer
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Movie Database Chat</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4" Color="Color.Secondary">
+        Ask questions about movies in natural language. Try: "Show me action movies from 2020" or "Find comedy movies"
+    </MudText>
+
+    <MudPaper Elevation="2" Class="chat-container pa-4">
+        @* Chat Messages Area *@
+        <MudPaper @ref="_chatContainer" id="chat-messages-container" Class="chat-messages pa-3 mb-4" Elevation="0" Style="height: 400px; overflow-y: auto; background-color: #f5f5f5;">
+            @if (!_messages.Any())
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 100%;">
+                    <MudIcon Icon="@Icons.Material.Filled.Chat" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">
+                        Start a conversation by typing a question below
+                    </MudText>
+                </MudStack>
+            }
+            else
+            {
+                @foreach (var message in _messages)
+                {
+                    <MudPaper Class="@($"{GetMessageClass(message.Role)} mb-3 pa-3")" Elevation="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                            <MudAvatar Size="Size.Small" Color="@GetAvatarColor(message.Role)">
+                                @GetAvatarIcon(message.Role)
+                            </MudAvatar>
+                            <MudStack Spacing="1" Style="flex: 1;">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @GetRoleLabel(message.Role) - @message.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@message.Content</MudText>
+
+                                @* Show export download button prominently *@
+                                @if (message.ToolCalls != null)
+                                {
+                                    @foreach (var exportCall in message.ToolCalls.Where(tc => tc.Result?.ResultType == "export" && !string.IsNullOrEmpty(tc.Result?.ExportFileId)))
+                                    {
+                                        <MudAlert Severity="Severity.Success" Class="mt-2" Dense="false">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                    <MudIcon Icon="@Icons.Material.Filled.TableChart" />
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.body2"><strong>@exportCall.Result!.ExportFileName</strong></MudText>
+                                                        <MudText Typo="Typo.caption">@exportCall.Result.TotalCount records exported</MudText>
+                                                    </MudStack>
+                                                </MudStack>
+                                                <MudButton Variant="Variant.Filled"
+                                                           Color="Color.Success"
+                                                           StartIcon="@Icons.Material.Filled.Download"
+                                                           Href="@($"/api/export/{exportCall.Result.ExportFileId}")"
+                                                           Target="_blank">
+                                                    Download Excel
+                                                </MudButton>
+                                            </MudStack>
+                                        </MudAlert>
+                                    }
+                                }
+
+                                @* Show tool calls if any *@
+                                @if (message.ToolCalls != null && message.ToolCalls.Any())
+                                {
+                                    <MudExpansionPanels Class="mt-2" MultiExpansion="true">
+                                        @foreach (var toolCall in message.ToolCalls)
+                                        {
+                                            <MudExpansionPanel Text="@($"Tool: {toolCall.ToolName}")"
+                                                               Icon="@Icons.Material.Filled.Build"
+                                                               Dense="true">
+                                                <MudStack Spacing="2">
+                                                    @* Query *@
+                                                    @if (!string.IsNullOrEmpty(toolCall.Result?.GeneratedQuery))
+                                                    {
+                                                        <MudAlert Severity="Severity.Info" Dense="true" NoIcon="true">
+                                                            <MudText Typo="Typo.caption"><strong>MongoDB Query:</strong></MudText>
+                                                            <MudText Typo="Typo.body2" Style="font-family: monospace; font-size: 0.75rem;">
+                                                                @toolCall.Result.GeneratedQuery
+                                                            </MudText>
+                                                        </MudAlert>
+                                                    }
+
+                                                    @* Results - Movies *@
+                                                    @if (toolCall.Result?.ResultType == "movies" && toolCall.Result.Movies.Any())
+                                                    {
+                                                        <MudText Typo="Typo.caption">
+                                                            <strong>Results:</strong> @toolCall.Result.TotalCount movie(s)
+                                                        </MudText>
+                                                        <MudSimpleTable Dense="true" Hover="true" Style="max-height: 200px; overflow-y: auto;">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Title</th>
+                                                                    <th>Year</th>
+                                                                    <th>Genres</th>
+                                                                    <th>Rating</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach (var movie in toolCall.Result.Movies.Take(10))
+                                                                {
+                                                                    <tr>
+                                                                        <td>@(movie.Title ?? "N/A")</td>
+                                                                        <td>@(movie.YearAsInt?.ToString() ?? "N/A")</td>
+                                                                        <td>@(movie.Genres != null ? string.Join(", ", movie.Genres) : "N/A")</td>
+                                                                        <td>@(movie.Imdb?.RatingAsDouble?.ToString("F1") ?? "N/A")</td>
+                                                                    </tr>
+                                                                }
+                                                            </tbody>
+                                                        </MudSimpleTable>
+                                                    }
+
+                                                    @* Results - Year Counts *@
+                                                    @if (toolCall.Result?.ResultType == "yearcounts" && toolCall.Result.YearCounts.Any())
+                                                    {
+                                                        <MudText Typo="Typo.caption">
+                                                            <strong>Results:</strong> @toolCall.Result.TotalCount year(s)
+                                                        </MudText>
+                                                        <MudSimpleTable Dense="true" Hover="true" Style="max-height: 200px; overflow-y: auto;">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Year</th>
+                                                                    <th>Movie Count</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach (var yc in toolCall.Result.YearCounts.Take(20))
+                                                                {
+                                                                    <tr>
+                                                                        <td>@yc.Year</td>
+                                                                        <td>@yc.MovieCount</td>
+                                                                    </tr>
+                                                                }
+                                                            </tbody>
+                                                        </MudSimpleTable>
+                                                    }
+
+                                                    @* Results - BsonDocuments (fallback) *@
+                                                    @if (toolCall.Result?.ResultType == "documents" && toolCall.Result.Documents.Any())
+                                                    {
+                                                        <MudText Typo="Typo.caption">
+                                                            <strong>Results:</strong> @toolCall.Result.TotalCount document(s)
+                                                        </MudText>
+                                                        <MudSimpleTable Dense="true" Hover="true" Style="max-height: 200px; overflow-y: auto;">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Title</th>
+                                                                    <th>Year</th>
+                                                                    <th>Genres</th>
+                                                                    <th>Rating</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach (var doc in toolCall.Result.Documents.Take(10))
+                                                                {
+                                                                    <tr>
+                                                                        <td>@GetDocValue(doc, "title")</td>
+                                                                        <td>@GetDocValue(doc, "year")</td>
+                                                                        <td>@GetGenres(doc)</td>
+                                                                        <td>@GetImdbRating(doc)</td>
+                                                                    </tr>
+                                                                }
+                                                            </tbody>
+                                                        </MudSimpleTable>
+                                                    }
+
+                                                    @* Results - Export *@
+                                                    @if (toolCall.Result?.ResultType == "export" && !string.IsNullOrEmpty(toolCall.Result.ExportFileId))
+                                                    {
+                                                        <MudAlert Severity="Severity.Success" Dense="true">
+                                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                                <MudIcon Icon="@Icons.Material.Filled.FileDownload" Size="Size.Small" />
+                                                                <MudText Typo="Typo.body2">
+                                                                    Export ready: @toolCall.Result.ExportFileName (@toolCall.Result.TotalCount records)
+                                                                </MudText>
+                                                                <MudButton Variant="Variant.Filled"
+                                                                           Color="Color.Primary"
+                                                                           Size="Size.Small"
+                                                                           StartIcon="@Icons.Material.Filled.Download"
+                                                                           Href="@($"/api/export/{toolCall.Result.ExportFileId}")"
+                                                                           Target="_blank">
+                                                                    Download Excel
+                                                                </MudButton>
+                                                            </MudStack>
+                                                        </MudAlert>
+                                                    }
+
+                                                    @* Error *@
+                                                    @if (!string.IsNullOrEmpty(toolCall.Result?.ErrorMessage))
+                                                    {
+                                                        <MudAlert Severity="Severity.Error" Dense="true">
+                                                            @toolCall.Result.ErrorMessage
+                                                        </MudAlert>
+                                                    }
+                                                </MudStack>
+                                            </MudExpansionPanel>
+                                        }
+                                    </MudExpansionPanels>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                @if (_isLoading)
+                {
+                    <MudPaper Class="message-assistant mb-3 pa-3" Elevation="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Thinking...</MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+            }
+        </MudPaper>
+
+        @* Input Area *@
+        <MudStack Row="true" Spacing="2">
+            <MudTextField @bind-Value="_userInput"
+                          Placeholder="Ask a question about movies..."
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true"
+                          OnKeyDown="@HandleKeyDown"
+                          Disabled="@_isLoading"
+                          Style="flex: 1;" />
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="SendMessage"
+                       Disabled="@(_isLoading || string.IsNullOrWhiteSpace(_userInput))"
+                       StartIcon="@Icons.Material.Filled.Send">
+                Send
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       OnClick="ClearChat"
+                       Disabled="@_isLoading"
+                       StartIcon="@Icons.Material.Filled.Delete">
+                Clear
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+<style>
+    .chat-container {
+        background-color: white;
+    }
+
+    .chat-messages {
+        border-radius: 8px;
+    }
+
+    .message-user {
+        background-color: #e3f2fd;
+        border-left: 4px solid #1E9BD7;
+    }
+
+    .message-assistant {
+        background-color: #ffffff;
+        border-left: 4px solid #4caf50;
+    }
+</style>
+
+@code {
+    private List<ChatMessage> _messages = new();
+    private string _userInput = string.Empty;
+    private bool _isLoading = false;
+    private string _userId = "anonymous";
+    private ChatSession? _session;
+    private MudPaper? _chatContainer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.Identity?.Name ?? "anonymous";
+
+        _session = ChatSessionService.GetOrCreateSession(_userId);
+        _messages = _session.Messages;
+
+        Logger.LogInformation("Chat initialized for user: {UserId}", _userId);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await ScrollToBottom();
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval",
+                "document.getElementById('chat-messages-container')?.scrollTo({top: document.getElementById('chat-messages-container').scrollHeight, behavior: 'smooth'})");
+        }
+        catch
+        {
+            // Ignore JS errors during prerendering
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !_isLoading && !string.IsNullOrWhiteSpace(_userInput))
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_userInput) || _isLoading || _session == null)
+            return;
+
+        var question = _userInput.Trim();
+        _userInput = string.Empty;
+        _isLoading = true;
+
+        // Add user message
+        _session.AddMessage("user", question);
+        StateHasChanged();
+        await ScrollToBottom();
+
+        try
+        {
+            Logger.LogInformation("User {UserId} asked: {Question}", _userId, question);
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var response = await QueryOrchestrator.ProcessQuestionAsync(question, _session, authState.User);
+
+            if (response.Success)
+            {
+                _session.AddMessage("assistant", response.Answer, response.ToolCalls);
+            }
+            else
+            {
+                _session.AddMessage("assistant", $"Sorry, I encountered an error: {response.ErrorMessage}", response.ToolCalls);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error processing chat message");
+            _session.AddMessage("assistant", $"Sorry, an error occurred: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private void ClearChat()
+    {
+        ChatSessionService.ClearSession(_userId);
+        _session = ChatSessionService.GetOrCreateSession(_userId);
+        _messages = _session.Messages;
+        StateHasChanged();
+    }
+
+    private string GetMessageClass(string role) => role switch
+    {
+        "user" => "message-user",
+        "assistant" => "message-assistant",
+        _ => ""
+    };
+
+    private Color GetAvatarColor(string role) => role switch
+    {
+        "user" => Color.Primary,
+        "assistant" => Color.Success,
+        _ => Color.Default
+    };
+
+    private string GetAvatarIcon(string role) => role switch
+    {
+        "user" => "U",
+        "assistant" => "AI",
+        _ => "?"
+    };
+
+    private string GetRoleLabel(string role) => role switch
+    {
+        "user" => "You",
+        "assistant" => "Assistant",
+        _ => role
+    };
+
+    private string GetDocValue(BsonDocument doc, string field)
+    {
+        try
+        {
+            if (doc.Contains(field))
+            {
+                var value = doc[field];
+                return value.BsonType == BsonType.Null ? "N/A" : value.ToString() ?? "N/A";
+            }
+            return "N/A";
+        }
+        catch
+        {
+            return "N/A";
+        }
+    }
+
+    private string GetGenres(BsonDocument doc)
+    {
+        try
+        {
+            if (doc.Contains("genres") && doc["genres"].IsBsonArray)
+            {
+                var genres = doc["genres"].AsBsonArray;
+                return string.Join(", ", genres.Select(g => g.ToString()));
+            }
+            return "N/A";
+        }
+        catch
+        {
+            return "N/A";
+        }
+    }
+
+    private string GetImdbRating(BsonDocument doc)
+    {
+        try
+        {
+            if (doc.Contains("imdb") && doc["imdb"].IsBsonDocument)
+            {
+                var imdb = doc["imdb"].AsBsonDocument;
+                if (imdb.Contains("rating"))
+                {
+                    return imdb["rating"].ToString() ?? "N/A";
+                }
+            }
+            return "N/A";
+        }
+        catch
+        {
+            return "N/A";
+        }
+    }
+}

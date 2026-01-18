@@ -1,0 +1,98 @@
+﻿● To add a new tool, you need to modify 3 files:
+
+  Steps to Add a New Tool
+
+  1. Services/Chat/MongoDbService.cs - Add the data access method
+
+  // Add to IMongoDbService interface
+  Task<List<Movie>> GetMoviesByCastAsync(string actorName, int limit = 10);
+
+  // Add implementation in MongoDbService class
+  public async Task<List<Movie>> GetMoviesByCastAsync(string actorName, int limit = 10)
+  {
+      _logger.LogInformation("LINQ Query: GetMoviesByCast - actor={Actor}, limit={Limit}", actorName, limit);
+
+      var movies = await GetMoviesQueryable()
+          .Where(m => m.Cast != null && m.Cast.Contains(actorName))
+          .Take(limit)
+          .ToListAsync();
+
+      return movies;
+  }
+
+  2. Services/Chat/McpTools.cs - Create the tool class and register it
+
+   // Add new tool class
+  public class FindMoviesByCastTool : IMcpTool
+  {
+      private readonly IMongoDbService _mongoDb;
+      private readonly ILogger<FindMoviesByCastTool> _logger;
+
+      public string Name => "find_movies_by_cast";
+      public string Description => "Find movies by actor/cast member name.";
+
+      public JsonElement ParametersSchema => JsonDocument.Parse("""
+          {
+              "type": "object",
+              "properties": {
+                  "actor": {
+                      "type": "string",
+                      "description": "The actor name to search for"
+                  },
+                  "limit": {
+                      "type": "integer",
+                      "description": "Maximum results (default: 10)",
+                      "default": 10
+                  }
+              },
+              "required": ["actor"]
+          }
+          """).RootElement;
+
+      public FindMoviesByCastTool(IMongoDbService mongoDb, ILogger<FindMoviesByCastTool> logger)
+      {
+          _mongoDb = mongoDb;
+          _logger = logger;
+      }
+
+       public async Task<McpToolResult> ExecuteAsync(JsonElement args, ClaimsPrincipal? user)
+      {
+          var actor = args.GetProperty("actor").GetString();
+          var limit = args.TryGetProperty("limit", out var l) ? Math.Min(l.GetInt32(), 50) : 10;
+
+          var movies = await _mongoDb.GetMoviesByCastAsync(actor!, limit);
+          return McpToolResult.FromMovies(movies, $"LINQ: movies.Where(m => m.Cast.Contains(\"{actor}\")).Take({limit})");
+      }
+  }
+
+  // Update McpToolRegistry constructor to include the new tool
+  public McpToolRegistry(
+      FindMoviesByGenreTool findByGenre,
+      FindMoviesByYearTool findByYear,
+      CountMoviesPerYearTool countPerYear,
+      FindMoviesByCastTool findByCast,  // <-- Add parameter
+      ILogger<McpToolRegistry> logger)
+  {
+      // ...
+      RegisterTool(findByCast);  // <-- Register it
+  }
+
+  3. Program.cs - Register the tool in DI
+
+  // Add this line with the other tool registrations
+  builder.Services.AddSingleton<FindMoviesByCastTool>();
+
+   ---
+  Summary
+  ┌───────────────────┬─────────────────────────────────────────────────┐
+  │       File        │                     Change                      │
+  ├───────────────────┼─────────────────────────────────────────────────┤
+  │ MongoDbService.cs │ Add interface method + implementation           │
+  ├───────────────────┼─────────────────────────────────────────────────┤
+  │ McpTools.cs       │ Create tool class + add to registry constructor │
+  ├───────────────────┼─────────────────────────────────────────────────┤
+  │ Program.cs        │ Register tool in DI container                   │
+  └───────────────────┴─────────────────────────────────────────────────┘
+  The UI (Chat.razor) doesn't need changes if your tool returns McpToolResult.FromMovies() 
+  or McpToolResult.FromYearCounts(). If you need a new result type, you'd also update McpToolFramework.cs and Chat.razor.
+

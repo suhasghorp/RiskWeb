@@ -1,0 +1,225 @@
+@page "/liquidity/movie-search"
+@using RiskWeb.Services.Chat
+@using RiskWeb.Models
+@inject IMongoDbService MongoDbService
+@inject ILogger<MovieSearch> Logger
+@rendermode InteractiveServer
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
+    <MudText Typo="Typo.h5" Class="mb-4">Movies by Genre and Year</MudText>
+
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudGrid>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="string"
+                           Label="Genre"
+                           @bind-Value="_selectedGenre"
+                           Variant="Variant.Outlined"
+                           AnchorOrigin="Origin.BottomCenter"
+                           Clearable="true">
+                    @foreach (var genre in _genres)
+                    {
+                        <MudSelectItem Value="@genre">@genre</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="int?"
+                           Label="Year"
+                           @bind-Value="_selectedYear"
+                           Variant="Variant.Outlined"
+                           AnchorOrigin="Origin.BottomCenter"
+                           Clearable="true">
+                    @foreach (var year in _years)
+                    {
+                        <MudSelectItem Value="@((int?)year)">@year</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4" Class="d-flex align-center">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Search"
+                           OnClick="SearchMovies"
+                           Disabled="@(!CanSearch || _isLoading)"
+                           Class="mr-2">
+                    @if (_isLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <span>Searching...</span>
+                    }
+                    else
+                    {
+                        <span>Search</span>
+                    }
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           OnClick="ClearSearch"
+                           Disabled="@_isLoading">
+                    Clear
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (_hasSearched && !_movies.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            No movies found for the selected criteria.
+        </MudAlert>
+    }
+
+    @if (_movies.Any())
+    {
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-2">
+                Found @_movies.Count @(_selectedGenre) movie(s) from @_selectedYear
+            </MudText>
+            <MudDataGrid Items="@_movies"
+                         Dense="true"
+                         Hover="true"
+                         Striped="true"
+                         Bordered="true"
+                         FixedHeader="true"
+                         Height="500px">
+                <Columns>
+                    <PropertyColumn Property="x => x.Title" Title="Title" />
+                    <PropertyColumn Property="x => x.YearAsInt" Title="Year" />
+                    <TemplateColumn Title="Genres">
+                        <CellTemplate>
+                            @if (context.Item.Genres != null)
+                            {
+                                @string.Join(", ", context.Item.Genres)
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Directors">
+                        <CellTemplate>
+                            @if (context.Item.Directors != null)
+                            {
+                                @string.Join(", ", context.Item.Directors)
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.Runtime" Title="Runtime (min)" />
+                    <PropertyColumn Property="x => x.Rated" Title="Rated" />
+                    <TemplateColumn Title="IMDB Rating">
+                        <CellTemplate>
+                            @if (context.Item.Imdb?.RatingAsDouble != null)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" Color="Color.Warning" />
+                                    <span>@context.Item.Imdb.RatingAsDouble.Value.ToString("F1")</span>
+                                </MudStack>
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Cast">
+                        <CellTemplate>
+                            @if (context.Item.Cast != null)
+                            {
+                                @string.Join(", ", context.Item.Cast.Take(3))
+                                @if (context.Item.Cast.Count > 3)
+                                {
+                                    <span>...</span>
+                                }
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="Movie" />
+                </PagerContent>
+            </MudDataGrid>
+        </MudPaper>
+    }
+    else if (!_hasSearched)
+    {
+        <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center justify-center" Style="background-color: #f5f5f5; min-height: 300px;">
+            <MudIcon Icon="@Icons.Material.Filled.MovieFilter" Size="Size.Large" Color="Color.Secondary" Class="mb-4" />
+            <MudText Typo="Typo.h6" Color="Color.Secondary">Select a Genre and Year to Search</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Choose values from both dropdowns and click Search to find movies.
+            </MudText>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private List<string> _genres = new();
+    private List<int> _years = new();
+    private List<Movie> _movies = new();
+    private string? _selectedGenre;
+    private int? _selectedYear;
+    private bool _isLoading = false;
+    private bool _hasSearched = false;
+
+    private bool CanSearch => !string.IsNullOrEmpty(_selectedGenre) && _selectedYear.HasValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Logger.LogInformation("Loading genres and years for movie search page");
+
+            // Load genres and years in parallel
+            var genresTask = MongoDbService.GetDistinctGenresAsync();
+            var yearsTask = MongoDbService.GetDistinctYearsAsync();
+
+            await Task.WhenAll(genresTask, yearsTask);
+
+            _genres = await genresTask;
+            _years = await yearsTask;
+
+            Logger.LogInformation("Loaded {GenreCount} genres and {YearCount} years",
+                _genres.Count, _years.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading genres and years");
+        }
+    }
+
+    private async Task SearchMovies()
+    {
+        if (!CanSearch) return;
+
+        _isLoading = true;
+        _hasSearched = true;
+        StateHasChanged();
+
+        try
+        {
+            Logger.LogInformation("Searching movies: genre={Genre}, year={Year}",
+                _selectedGenre, _selectedYear);
+
+            _movies = await MongoDbService.GetMoviesByGenreAndYearAsync(
+                _selectedGenre!,
+                _selectedYear!.Value,
+                50000); // Get all matching movies
+
+            Logger.LogInformation("Found {Count} movies", _movies.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error searching movies");
+            _movies = new();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ClearSearch()
+    {
+        _selectedGenre = null;
+        _selectedYear = null;
+        _movies = new();
+        _hasSearched = false;
+        StateHasChanged();
+    }
+}
