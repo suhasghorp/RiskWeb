@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<Role> Roles { get; set; }
     public DbSet<UserInRole> UserInRoles { get; set; }
+    public DbSet<Region> Regions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +55,12 @@ public class ApplicationDbContext : DbContext
                 .WithMany(r => r.UserInRoles)
                 .HasForeignKey(ur => ur.RoleId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Region>(entity =>
+        {
+            entity.ToTable("Regions", "dbo");
+            entity.HasKey(r => r.RegionID);
         });
     }
 }
