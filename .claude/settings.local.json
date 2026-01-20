@@ -3,7 +3,9 @@
     "allow": [
       "Bash(dotnet add package:*)",
       "Bash(dotnet build:*)",
-      "Bash(dir \"C:\\\\suhas\\\\RiskWeb\\\\Components\\\\Pages\" /s)"
+      "Bash(dir \"C:\\\\suhas\\\\RiskWeb\\\\Components\\\\Pages\" /s)",
+      "Bash(git reset:*)",
+      "Bash(git add:*)"
     ]
   }
 }

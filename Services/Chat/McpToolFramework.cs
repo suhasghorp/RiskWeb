@@ -89,6 +89,7 @@ public class McpToolResult
 
 public class ToolCall
 {
+    public string ToolCallId { get; set; } = string.Empty;
     public string ToolName { get; set; } = string.Empty;
     public JsonElement Arguments { get; set; }
     public McpToolResult? Result { get; set; }

@@ -4,60 +4,155 @@ using MongoDB.Bson;
 
 namespace RiskWeb.Services.Chat;
 
-public interface IQueryOrchestrator
-{
-    Task<OrchestratorResponse> ProcessQuestionAsync(string question, ChatSession session, ClaimsPrincipal? user);
-}
-
-public class OrchestratorResponse
-{
-    public bool Success { get; set; }
-    public string Answer { get; set; } = string.Empty;
-    public List<ToolCall> ToolCalls { get; set; } = new();
-    public string? ErrorMessage { get; set; }
-}
-
-public class QueryOrchestrator : IQueryOrchestrator
+public class GenericQueryOrchestrator : IQueryOrchestrator
 {
     private readonly ILlmClient _llmClient;
-    private readonly McpToolRegistry _toolRegistry;
-    private readonly ILogger<QueryOrchestrator> _logger;
+    private readonly GenericToolRegistry _toolRegistry;
+    private readonly ILogger<GenericQueryOrchestrator> _logger;
 
     private const string SystemPrompt = """
-        You are a helpful assistant that helps users query a MongoDB movie database.
-        You have access to tools that can search for movies by genre, year, or both, count movies per year, and export results to Excel.
+        You are a helpful assistant that queries a MongoDB movie database.
 
-        Available collections:
-        - movies: Contains movie documents with fields like title, year, genres, cast, directors, plot, runtime, rated, imdb (rating, votes), etc.
+        Database: mflix
+        Collection: movies
 
-        IMPORTANT - Choose the right search tool:
-        - find_movies_by_genre: Use when filtering by genre ONLY
-        - find_movies_by_year: Use when filtering by year ONLY
-        - find_movies_by_genre_and_year: Use when filtering by BOTH genre AND year (e.g., "action movies from 2020", "comedy films in 1995")
-        - count_movies_per_year: Use for counting movies per year
+        Document structure:
+        {
+          "_id": ObjectId,
+          "title": string,
+          "year": number (note: some documents may have year as string),
+          "genres": [string] (e.g., ["Action", "Comedy", "Drama"]),
+          "directors": [string],
+          "cast": [string],
+          "plot": string,
+          "fullplot": string,
+          "runtime": number (minutes),
+          "rated": string (e.g., "PG", "R", "PG-13"),
+          "imdb": { "rating": number, "votes": number, "id": number },
+          "awards": { "wins": number, "nominations": number, "text": string },
+          "countries": [string],
+          "languages": [string],
+          "released": date,
+          "poster": string (URL),
+          "metacritic": number
+        }
 
-        When user says "all" or "everything", set limit to 0 to get all matching records.
+        Available tools:
 
-        IMPORTANT - For export requests (export, download, save to Excel/spreadsheet):
-        - Call export_to_excel DIRECTLY - do NOT run a search query first
-        - Choose the correct export_type:
-          * "movies_by_genre" - when filtering by genre only
-          * "movies_by_year" - when filtering by year only
-          * "movies_by_genre_and_year" - when filtering by BOTH genre AND year
-          * "movies_by_year_range" - when filtering by a range of years
-          * "movie_counts" - for movie count statistics
-        - When user says "all", set limit to 0 to export all matching records
+        1. execute_mongodb_query - Execute MongoDB queries
+           - collection: "movies"
+           - operation: "find" | "aggregate" | "count"
+           - query: MongoDB filter object (for find/count) or pipeline array (for aggregate)
+           - options: { limit, skip, sort, projection }
 
-        Always use tools to fetch data - never make up movie information.
-        After receiving tool results, summarize the findings in a helpful way.
-        If no results are found, suggest alternative search criteria.
-        Keep responses concise and focused on the query results.
+        2. export_to_excel - Export results to Excel file
+           - Use for "export to Excel", "download as spreadsheet", "save to file" requests
+
+        MongoDB Query Examples:
+
+        Simple find (Action movies):
+        {
+          "collection": "movies",
+          "operation": "find",
+          "query": { "genres": "Action" },
+          "options": { "limit": 10 }
+        }
+
+        Find with year filter (movies from 2020):
+        {
+          "collection": "movies",
+          "operation": "find",
+          "query": { "year": 2020 },
+          "options": { "limit": 10 }
+        }
+
+        Combined filter (Action movies from 2015):
+        {
+          "collection": "movies",
+          "operation": "find",
+          "query": { "genres": "Action", "year": 2015 },
+          "options": { "limit": 10 }
+        }
+
+        Year range filter (movies from 2000-2010):
+        {
+          "collection": "movies",
+          "operation": "find",
+          "query": { "year": { "$gte": 2000, "$lte": 2010 } },
+          "options": { "limit": 10, "sort": { "year": 1 } }
+        }
+
+        High-rated movies (IMDB > 8):
+        {
+          "collection": "movies",
+          "operation": "find",
+          "query": { "imdb.rating": { "$gte": 8 } },
+          "options": { "limit": 10, "sort": { "imdb.rating": -1 } }
+        }
+
+        Count movies per year (aggregation):
+        {
+          "collection": "movies",
+          "operation": "aggregate",
+          "query": [
+            { "$group": { "_id": "$year", "count": { "$sum": 1 } } },
+            { "$sort": { "_id": 1 } }
+          ]
+        }
+
+        Count movies per year in range:
+        {
+          "collection": "movies",
+          "operation": "aggregate",
+          "query": [
+            { "$match": { "year": { "$gte": 2000, "$lte": 2020 } } },
+            { "$group": { "_id": "$year", "count": { "$sum": 1 } } },
+            { "$sort": { "_id": 1 } }
+          ]
+        }
+
+        Top genres by movie count:
+        {
+          "collection": "movies",
+          "operation": "aggregate",
+          "query": [
+            { "$unwind": "$genres" },
+            { "$group": { "_id": "$genres", "count": { "$sum": 1 } } },
+            { "$sort": { "count": -1 } },
+            { "$limit": 10 }
+          ]
+        }
+
+        Count total documents:
+        {
+          "collection": "movies",
+          "operation": "count",
+          "query": {}
+        }
+
+        Count with filter:
+        {
+          "collection": "movies",
+          "operation": "count",
+          "query": { "genres": "Drama" }
+        }
+
+        Important guidelines:
+        - Always use tools to fetch data - never make up movie information
+        - Use "find" for simple queries returning movie documents
+        - Use "aggregate" for grouping, counting per category, or complex transformations
+        - Use "count" when user asks "how many" without needing the actual documents
+        - When user says "all", increase the limit appropriately (e.g., 1000)
+        - After receiving tool results, summarize the findings in a helpful way
+        - If no results are found, suggest alternative search criteria
+        - Keep responses concise and focused on the query results
+        - For export requests, call export_to_excel directly with appropriate parameters
         """;
 
-    public QueryOrchestrator(
+    public GenericQueryOrchestrator(
         ILlmClient llmClient,
-        McpToolRegistry toolRegistry,
-        ILogger<QueryOrchestrator> logger)
+        GenericToolRegistry toolRegistry,
+        ILogger<GenericQueryOrchestrator> logger)
     {
         _llmClient = llmClient;
         _toolRegistry = toolRegistry;
@@ -69,7 +164,7 @@ public class QueryOrchestrator : IQueryOrchestrator
         ChatSession session,
         ClaimsPrincipal? user)
     {
-        _logger.LogInformation("Processing question: {Question}", question);
+        _logger.LogInformation("Processing question with generic orchestrator: {Question}", question);
 
         var toolCalls = new List<ToolCall>();
 
@@ -160,7 +255,7 @@ public class QueryOrchestrator : IQueryOrchestrator
             return new OrchestratorResponse
             {
                 Success = true,
-                Answer = response.Content ?? "I'm not sure how to help with that. Try asking about movies by genre or year.",
+                Answer = response.Content ?? "I'm not sure how to help with that. Try asking about movies by genre, year, or requesting aggregations.",
                 ToolCalls = toolCalls
             };
         }
@@ -295,6 +390,10 @@ public class QueryOrchestrator : IQueryOrchestrator
                 {
                     sb.AppendLine($"... and {toolCall.Result.TotalCount - 20} more years");
                 }
+                break;
+
+            case "count":
+                sb.AppendLine($"Total count: {toolCall.Result.TotalCount}");
                 break;
 
             case "export":
