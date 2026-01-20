@@ -125,7 +125,8 @@ public class QueryOrchestrator : IQueryOrchestrator
                     {
                         Role = "tool",
                         Content = resultContent,
-                        ToolCallId = toolResult.ToolCallId
+                        ToolCallId = response.ToolCalls
+                            .FirstOrDefault(tc => tc.Function.Name == toolResult.ToolName)?.Id
                     });
                 }
 
@@ -227,7 +228,6 @@ public class QueryOrchestrator : IQueryOrchestrator
 
             var toolCall = new ToolCall
             {
-                ToolCallId = llmCall.Id,
                 ToolName = toolName,
                 Arguments = JsonDocument.Parse(llmCall.Function.Arguments).RootElement
             };

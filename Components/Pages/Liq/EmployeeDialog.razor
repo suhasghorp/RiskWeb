@@ -1,8 +1,5 @@
 @using MudBlazor
 @using RiskWeb.Models
-@using RiskWeb.Data
-@using Microsoft.EntityFrameworkCore
-@inject ApplicationDbContext DbContext
 
 <MudDialog>
     <TitleContent>
@@ -52,14 +49,8 @@
                     Label="City" />
                 </MudItem>
                 <MudItem xs="12" sm="4">
-                    <MudSelect @bind-Value="Employee.Region"
-                               Label="Region"
-                               AnchorOrigin="Origin.BottomCenter">
-                        @foreach (var region in _regions)
-                        {
-                            <MudSelectItem Value="@region.RegionDescription">@region.RegionDescription</MudSelectItem>
-                        }
-                    </MudSelect>
+                    <MudTextField @bind-Value="Employee.Region"
+                    Label="Region" />
                 </MudItem>
                 <MudItem xs="12" sm="4">
                     <MudTextField @bind-Value="Employee.PostalCode"
@@ -100,12 +91,6 @@
 
     private MudForm? _form;
     private bool _isValid;
-    private List<Region> _regions = new();
-
-    protected override async Task OnInitializedAsync()
-    {
-        _regions = await DbContext.Regions.ToListAsync();
-    }
 
     private void Cancel() => MudDialog?.Cancel();
 

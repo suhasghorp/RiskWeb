@@ -63,30 +63,13 @@ else
 }
 
 builder.Services.AddSingleton<IExcelExportService, ExcelExportService>();
-
-// Register chat tools based on configuration
-var useGenericTool = builder.Configuration.GetValue<bool>("ChatTools:UseGenericQueryTool");
-Log.Information("Using Generic Query Tool: {UseGeneric}", useGenericTool);
-
-if (useGenericTool)
-{
-    // New generic query approach - single tool that accepts LLM-generated MongoDB queries
-    builder.Services.AddSingleton<GenericMongoQueryTool>();
-    builder.Services.AddSingleton<ExportResultsToExcelTool>();
-    builder.Services.AddSingleton<GenericToolRegistry>();
-    builder.Services.AddScoped<IQueryOrchestrator, GenericQueryOrchestrator>();
-}
-else
-{
-    // Legacy approach - multiple specialized tools
-    builder.Services.AddSingleton<FindMoviesByGenreTool>();
-    builder.Services.AddSingleton<FindMoviesByYearTool>();
-    builder.Services.AddSingleton<FindMoviesByGenreAndYearTool>();
-    builder.Services.AddSingleton<CountMoviesPerYearTool>();
-    builder.Services.AddSingleton<ExportResultsToExcelTool>();
-    builder.Services.AddSingleton<McpToolRegistry>();
-    builder.Services.AddScoped<IQueryOrchestrator, QueryOrchestrator>();
-}
+builder.Services.AddSingleton<FindMoviesByGenreTool>();
+builder.Services.AddSingleton<FindMoviesByYearTool>();
+builder.Services.AddSingleton<FindMoviesByGenreAndYearTool>();
+builder.Services.AddSingleton<CountMoviesPerYearTool>();
+builder.Services.AddSingleton<ExportResultsToExcelTool>();
+builder.Services.AddSingleton<McpToolRegistry>();
+builder.Services.AddScoped<IQueryOrchestrator, QueryOrchestrator>();
 
 var app = builder.Build();
 
