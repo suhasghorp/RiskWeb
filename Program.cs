@@ -47,7 +47,6 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddMudServices();
 
 // Chat services
-builder.Services.AddSingleton<IMongoDbService, MongoDbService>();
 builder.Services.AddSingleton<IChatSessionService, ChatSessionService>();
 
 // Register LLM client based on configuration
@@ -63,6 +62,19 @@ else
 }
 
 builder.Services.AddSingleton<IExcelExportService, ExcelExportService>();
+
+// SQL Server MCP Services (new architecture - LLM generates queries)
+builder.Services.AddSingleton<ISqlServerMcpService, SqlServerMcpService>();
+builder.Services.AddSingleton<ListTablesTool>();
+builder.Services.AddSingleton<DescribeTableTool>();
+builder.Services.AddSingleton<ReadDataTool>();
+builder.Services.AddSingleton<GetSampleDataTool>();
+builder.Services.AddSingleton<ExportSqlToExcelTool>();
+builder.Services.AddSingleton<SqlServerMcpToolRegistry>();
+builder.Services.AddScoped<ISqlServerQueryOrchestrator, SqlServerQueryOrchestrator>();
+
+// Legacy MongoDB services (kept for backward compatibility)
+builder.Services.AddSingleton<IMongoDbService, MongoDbService>();
 builder.Services.AddSingleton<FindMoviesByGenreTool>();
 builder.Services.AddSingleton<FindMoviesByYearTool>();
 builder.Services.AddSingleton<FindMoviesByGenreAndYearTool>();

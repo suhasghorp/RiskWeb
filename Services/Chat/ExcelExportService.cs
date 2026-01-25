@@ -7,6 +7,7 @@ public interface IExcelExportService
 {
     Task<ExportResult> ExportMoviesToExcelAsync(List<Movie> movies, string queryDescription);
     Task<ExportResult> ExportYearCountsToExcelAsync(List<YearCount> yearCounts, string queryDescription);
+    Task<ExportResult> ExportSqlDataToExcelAsync(List<string> columns, List<Dictionary<string, object?>> rows, string queryDescription, string? sheetName = null);
     byte[]? GetExportedFile(string fileId);
     void CleanupOldFiles();
 }
@@ -203,6 +204,131 @@ public class ExcelExportService : IExcelExportService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error exporting year counts to Excel");
+            return Task.FromResult(new ExportResult
+            {
+                Success = false,
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
+    public Task<ExportResult> ExportSqlDataToExcelAsync(List<string> columns, List<Dictionary<string, object?>> rows, string queryDescription, string? sheetName = null)
+    {
+        try
+        {
+            _logger.LogInformation("Exporting {Count} rows with {ColCount} columns to Excel", rows.Count, columns.Count);
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add(sheetName ?? "Query Results");
+
+            // Add header row
+            for (int col = 0; col < columns.Count; col++)
+            {
+                worksheet.Cell(1, col + 1).Value = columns[col];
+            }
+
+            // Style header
+            var headerRange = worksheet.Range(1, 1, 1, columns.Count);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+            headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+
+            // Add data rows
+            for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+            {
+                var row = rows[rowIndex];
+                var excelRow = rowIndex + 2;
+
+                for (int colIndex = 0; colIndex < columns.Count; colIndex++)
+                {
+                    var colName = columns[colIndex];
+                    var cell = worksheet.Cell(excelRow, colIndex + 1);
+
+                    if (row.TryGetValue(colName, out var value) && value != null)
+                    {
+                        // Handle different types appropriately
+                        switch (value)
+                        {
+                            case int intVal:
+                                cell.Value = intVal;
+                                break;
+                            case long longVal:
+                                cell.Value = longVal;
+                                break;
+                            case decimal decVal:
+                                cell.Value = decVal;
+                                break;
+                            case double dblVal:
+                                cell.Value = dblVal;
+                                break;
+                            case float fltVal:
+                                cell.Value = fltVal;
+                                break;
+                            case bool boolVal:
+                                cell.Value = boolVal;
+                                break;
+                            case DateTime dtVal:
+                                cell.Value = dtVal;
+                                cell.Style.NumberFormat.Format = "yyyy-MM-dd HH:mm:ss";
+                                break;
+                            default:
+                                cell.Value = value.ToString();
+                                break;
+                        }
+                    }
+                }
+            }
+
+            // Auto-fit columns (with max width to prevent very wide columns)
+            foreach (var col in worksheet.ColumnsUsed())
+            {
+                col.AdjustToContents();
+                if (col.Width > 50)
+                {
+                    col.Width = 50;
+                }
+            }
+
+            // Add query info sheet
+            var infoSheet = workbook.Worksheets.Add("Query Info");
+            infoSheet.Cell(1, 1).Value = "Query:";
+            infoSheet.Cell(1, 2).Value = queryDescription;
+            infoSheet.Cell(2, 1).Value = "Exported:";
+            infoSheet.Cell(2, 2).Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            infoSheet.Cell(3, 1).Value = "Record Count:";
+            infoSheet.Cell(3, 2).Value = rows.Count;
+            infoSheet.Cell(4, 1).Value = "Columns:";
+            infoSheet.Cell(4, 2).Value = columns.Count;
+            infoSheet.Column(1).Style.Font.Bold = true;
+            infoSheet.Columns().AdjustToContents();
+
+            // Save to memory
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            var fileData = stream.ToArray();
+
+            var fileId = Guid.NewGuid().ToString("N")[..12];
+            var fileName = $"SqlExport_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+
+            lock (_lock)
+            {
+                _exportedFiles[fileId] = (fileData, DateTime.Now, fileName);
+            }
+
+            _logger.LogInformation("SQL Excel export created: {FileId}, {FileName}, {Size} bytes",
+                fileId, fileName, fileData.Length);
+
+            return Task.FromResult(new ExportResult
+            {
+                Success = true,
+                FileId = fileId,
+                FileName = fileName,
+                RecordCount = rows.Count
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error exporting SQL data to Excel");
             return Task.FromResult(new ExportResult
             {
                 Success = false,

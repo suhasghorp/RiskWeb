@@ -1,0 +1,449 @@
+@page "/liquidity/sqlchat"
+@using RiskWeb.Services.Chat
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+@inject ISqlServerQueryOrchestrator QueryOrchestrator
+@inject IChatSessionService ChatSessionService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@inject ILogger<SqlChat> Logger
+@rendermode InteractiveServer
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-4">
+    <MudText Typo="Typo.h5" Class="mb-2">SQL Server Data Chat</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4" Color="Color.Secondary">
+        Ask questions about your SQL Server data in natural language. The AI will explore the database schema and write queries to answer your questions.
+    </MudText>
+
+    <MudPaper Elevation="2" Class="chat-container pa-4">
+        @* Chat Messages Area *@
+        <MudPaper @ref="_chatContainer" id="sql-chat-messages-container" Class="chat-messages pa-3 mb-4" Elevation="0" Style="height: 450px; overflow-y: auto; background-color: #f5f5f5;">
+            @if (!_messages.Any())
+            {
+                <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 100%;">
+                    <MudIcon Icon="@Icons.Material.Filled.Storage" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">
+                        Start by asking a question about your data
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Try: "What tables are available?" or "Show me some sample data from [table]"
+                    </MudText>
+                </MudStack>
+            }
+            else
+            {
+                @foreach (var message in _messages)
+                {
+                    <MudPaper Class="@($"{GetMessageClass(message.Role)} mb-3 pa-3")" Elevation="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                            <MudAvatar Size="Size.Small" Color="@GetAvatarColor(message.Role)">
+                                @GetAvatarIcon(message.Role)
+                            </MudAvatar>
+                            <MudStack Spacing="1" Style="flex: 1;">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @GetRoleLabel(message.Role) - @message.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="white-space: pre-wrap;">@message.Content</MudText>
+
+                                @* Show export download button prominently (outside expansion panel) *@
+                                @if (message.ToolCalls != null)
+                                {
+                                    @foreach (var exportCall in message.ToolCalls.Where(tc => tc.Result?.ResultType == "export" && !string.IsNullOrEmpty(tc.Result?.ExportFileId)))
+                                    {
+                                        <MudAlert Severity="Severity.Success" Class="mt-2" Dense="false">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                    <MudIcon Icon="@Icons.Material.Filled.TableChart" />
+                                                    <MudStack Spacing="0">
+                                                        <MudText Typo="Typo.body2"><strong>@exportCall.Result!.ExportFileName</strong></MudText>
+                                                        <MudText Typo="Typo.caption">@exportCall.Result.TotalCount records exported</MudText>
+                                                    </MudStack>
+                                                </MudStack>
+                                                <MudButton Variant="Variant.Filled"
+                                                           Color="Color.Success"
+                                                           StartIcon="@Icons.Material.Filled.Download"
+                                                           Href="@($"/api/export/{exportCall.Result.ExportFileId}")"
+                                                           Target="_blank">
+                                                    Download Excel
+                                                </MudButton>
+                                            </MudStack>
+                                        </MudAlert>
+                                    }
+                                }
+
+                                @* Show tool calls if any *@
+                                @if (message.ToolCalls != null && message.ToolCalls.Any())
+                                {
+                                    <MudExpansionPanels Class="mt-2" MultiExpansion="true">
+                                        @foreach (var toolCall in message.ToolCalls)
+                                        {
+                                            <MudExpansionPanel Text="@($"Tool: {toolCall.ToolName}")"
+                                                               Icon="@GetToolIcon(toolCall.ToolName)"
+                                                               Dense="true">
+                                                <MudStack Spacing="2">
+                                                    @* Query executed *@
+                                                    @if (!string.IsNullOrEmpty(toolCall.Result?.GeneratedQuery))
+                                                    {
+                                                        <MudAlert Severity="Severity.Info" Dense="true" NoIcon="true">
+                                                            <MudText Typo="Typo.caption"><strong>Query:</strong></MudText>
+                                                            <MudText Typo="Typo.body2" Style="font-family: monospace; font-size: 0.75rem; white-space: pre-wrap;">
+                                                                @toolCall.Result.GeneratedQuery
+                                                            </MudText>
+                                                        </MudAlert>
+                                                    }
+
+                                                    @* Results - Table List *@
+                                                    @if (toolCall.Result?.ResultType == "table_list" && toolCall.Result.SqlData?.Tables != null)
+                                                    {
+                                                        <MudText Typo="Typo.caption">
+                                                            <strong>Tables Found:</strong> @toolCall.Result.TotalCount
+                                                        </MudText>
+                                                        <MudChipSet T="string">
+                                                            @foreach (var table in toolCall.Result.SqlData.Tables.Take(20))
+                                                            {
+                                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@table</MudChip>
+                                                            }
+                                                            @if (toolCall.Result.SqlData.Tables.Count > 20)
+                                                            {
+                                                                <MudChip T="string" Size="Size.Small" Color="Color.Secondary">+@(toolCall.Result.SqlData.Tables.Count - 20) more</MudChip>
+                                                            }
+                                                        </MudChipSet>
+                                                    }
+
+                                                    @* Results - Table Schema *@
+                                                    @if (toolCall.Result?.ResultType == "table_schema" && toolCall.Result.SqlData?.TableSchema != null)
+                                                    {
+                                                        var schema = toolCall.Result.SqlData.TableSchema;
+                                                        <MudText Typo="Typo.caption">
+                                                            <strong>Schema for:</strong> @schema.SchemaName.@schema.TableName
+                                                        </MudText>
+
+                                                        @if (!schema.Columns.Any())
+                                                        {
+                                                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                                                No columns found for this table. The table name may be incorrect.
+                                                            </MudAlert>
+
+                                                            @if (schema.SimilarTableNames != null && schema.SimilarTableNames.Any())
+                                                            {
+                                                                <MudText Typo="Typo.caption" Class="mt-2"><strong>Did you mean:</strong></MudText>
+                                                                <MudChipSet T="string">
+                                                                    @foreach (var similar in schema.SimilarTableNames.Take(10))
+                                                                    {
+                                                                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">@similar</MudChip>
+                                                                    }
+                                                                </MudChipSet>
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudSimpleTable Dense="true" Hover="true" Style="max-height: 200px; overflow-y: auto;">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Column</th>
+                                                                        <th>Type</th>
+                                                                        <th>Nullable</th>
+                                                                        <th>Key</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @foreach (var col in schema.Columns)
+                                                                    {
+                                                                        <tr>
+                                                                            <td>@col.Name</td>
+                                                                            <td>@col.DataType@(col.MaxLength.HasValue ? $"({col.MaxLength})" : "")</td>
+                                                                            <td>@(col.IsNullable ? "Yes" : "No")</td>
+                                                                            <td>@(col.IsPrimaryKey ? "PK" : "")</td>
+                                                                        </tr>
+                                                                    }
+                                                                </tbody>
+                                                            </MudSimpleTable>
+                                                            @if (schema.ForeignKeys.Any())
+                                                            {
+                                                                <MudText Typo="Typo.caption" Class="mt-2"><strong>Foreign Keys (references):</strong></MudText>
+                                                                @foreach (var fk in schema.ForeignKeys)
+                                                                {
+                                                                    <MudText Typo="Typo.body2" Style="font-size: 0.75rem;">
+                                                                        @fk.ColumnName -> @fk.ReferencedTable.@fk.ReferencedColumn
+                                                                    </MudText>
+                                                                }
+                                                            }
+                                                            @if (schema.ReferencedBy.Any())
+                                                            {
+                                                                <MudText Typo="Typo.caption" Class="mt-2"><strong>Referenced By (child tables):</strong></MudText>
+                                                                @foreach (var refBy in schema.ReferencedBy)
+                                                                {
+                                                                    <MudText Typo="Typo.body2" Style="font-size: 0.75rem;">
+                                                                        @refBy.ReferencingTable.@refBy.ReferencingColumn -> @schema.TableName.@refBy.LocalColumn
+                                                                    </MudText>
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
+                                                    @* Results - Query Data *@
+                                                    @if ((toolCall.Result?.ResultType == "query_results" || toolCall.Result?.ResultType == "sample_data")
+                                                         && toolCall.Result.SqlData?.Rows != null && toolCall.Result.SqlData.Rows.Any())
+                                                    {
+                                                        <MudText Typo="Typo.caption">
+                                                            <strong>Results:</strong> @toolCall.Result.TotalCount row(s)
+                                                        </MudText>
+                                                        <div style="max-height: 250px; overflow: auto;">
+                                                            <MudSimpleTable Dense="true" Hover="true">
+                                                                <thead>
+                                                                    <tr>
+                                                                        @if (toolCall.Result.SqlData.Columns != null)
+                                                                        {
+                                                                            @foreach (var col in toolCall.Result.SqlData.Columns)
+                                                                            {
+                                                                                <th style="white-space: nowrap;">@col</th>
+                                                                            }
+                                                                        }
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    @foreach (var row in toolCall.Result.SqlData.Rows.Take(50))
+                                                                    {
+                                                                        <tr>
+                                                                            @if (toolCall.Result.SqlData.Columns != null)
+                                                                            {
+                                                                                @foreach (var col in toolCall.Result.SqlData.Columns)
+                                                                                {
+                                                                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                                                                        @(row.TryGetValue(col, out var val) ? (val?.ToString() ?? "NULL") : "NULL")
+                                                                                    </td>
+                                                                                }
+                                                                            }
+                                                                        </tr>
+                                                                    }
+                                                                </tbody>
+                                                            </MudSimpleTable>
+                                                        </div>
+                                                        @if (toolCall.Result.SqlData.Rows.Count > 50)
+                                                        {
+                                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                                Showing 50 of @toolCall.Result.SqlData.Rows.Count rows
+                                                            </MudText>
+                                                        }
+                                                    }
+
+                                                    @* Results - Export (simple info - download button shown prominently above) *@
+                                                    @if (toolCall.Result?.ResultType == "export" && !string.IsNullOrEmpty(toolCall.Result.ExportFileId))
+                                                    {
+                                                        <MudText Typo="Typo.caption" Color="Color.Success">
+                                                            Export created: @toolCall.Result.ExportFileName (@toolCall.Result.TotalCount records)
+                                                        </MudText>
+                                                    }
+
+                                                    @* Error *@
+                                                    @if (!string.IsNullOrEmpty(toolCall.Result?.ErrorMessage))
+                                                    {
+                                                        <MudAlert Severity="Severity.Error" Dense="true">
+                                                            @toolCall.Result.ErrorMessage
+                                                        </MudAlert>
+                                                    }
+                                                </MudStack>
+                                            </MudExpansionPanel>
+                                        }
+                                    </MudExpansionPanels>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                @if (_isLoading)
+                {
+                    <MudPaper Class="message-assistant mb-3 pa-3" Elevation="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Analyzing your question...</MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+            }
+        </MudPaper>
+
+        @* Input Area *@
+        <MudStack Row="true" Spacing="2">
+            <MudTextField @bind-Value="_userInput"
+                          Placeholder="Ask a question about your SQL Server data..."
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true"
+                          OnKeyDown="@HandleKeyDown"
+                          Disabled="@_isLoading"
+                          Style="flex: 1;" />
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="SendMessage"
+                       Disabled="@(_isLoading || string.IsNullOrWhiteSpace(_userInput))"
+                       StartIcon="@Icons.Material.Filled.Send">
+                Send
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       OnClick="ClearChat"
+                       Disabled="@_isLoading"
+                       StartIcon="@Icons.Material.Filled.Delete">
+                Clear
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+<style>
+    .chat-container {
+        background-color: white;
+    }
+
+    .chat-messages {
+        border-radius: 8px;
+    }
+
+    .message-user {
+        background-color: #e3f2fd;
+        border-left: 4px solid #1E9BD7;
+    }
+
+    .message-assistant {
+        background-color: #ffffff;
+        border-left: 4px solid #4caf50;
+    }
+</style>
+
+@code {
+    private List<ChatMessage> _messages = new();
+    private string _userInput = string.Empty;
+    private bool _isLoading = false;
+    private string _userId = "anonymous";
+    private ChatSession? _session;
+    private MudPaper? _chatContainer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.Identity?.Name ?? "anonymous";
+
+        // Use a separate session key for SQL chat
+        _session = ChatSessionService.GetOrCreateSession($"sql_{_userId}");
+        _messages = _session.Messages;
+
+        Logger.LogInformation("SQL Chat initialized for user: {UserId}", _userId);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await ScrollToBottom();
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval",
+                "document.getElementById('sql-chat-messages-container')?.scrollTo({top: document.getElementById('sql-chat-messages-container').scrollHeight, behavior: 'smooth'})");
+        }
+        catch
+        {
+            // Ignore JS errors during prerendering
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !_isLoading && !string.IsNullOrWhiteSpace(_userInput))
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_userInput) || _isLoading || _session == null)
+            return;
+
+        var question = _userInput.Trim();
+        _userInput = string.Empty;
+        _isLoading = true;
+
+        // Add user message
+        _session.AddMessage("user", question);
+        StateHasChanged();
+        await ScrollToBottom();
+
+        try
+        {
+            Logger.LogInformation("User {UserId} asked SQL question: {Question}", _userId, question);
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var response = await QueryOrchestrator.ProcessQuestionAsync(question, _session, authState.User);
+
+            if (response.Success)
+            {
+                _session.AddMessage("assistant", response.Answer, response.ToolCalls);
+            }
+            else
+            {
+                _session.AddMessage("assistant", $"Sorry, I encountered an error: {response.ErrorMessage}", response.ToolCalls);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error processing SQL chat message");
+            _session.AddMessage("assistant", $"Sorry, an error occurred: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private void ClearChat()
+    {
+        ChatSessionService.ClearSession($"sql_{_userId}");
+        _session = ChatSessionService.GetOrCreateSession($"sql_{_userId}");
+        _messages = _session.Messages;
+        StateHasChanged();
+    }
+
+    private string GetMessageClass(string role) => role switch
+    {
+        "user" => "message-user",
+        "assistant" => "message-assistant",
+        _ => ""
+    };
+
+    private Color GetAvatarColor(string role) => role switch
+    {
+        "user" => Color.Primary,
+        "assistant" => Color.Success,
+        _ => Color.Default
+    };
+
+    private string GetAvatarIcon(string role) => role switch
+    {
+        "user" => "U",
+        "assistant" => "AI",
+        _ => "?"
+    };
+
+    private string GetRoleLabel(string role) => role switch
+    {
+        "user" => "You",
+        "assistant" => "Assistant",
+        _ => role
+    };
+
+    private string GetToolIcon(string toolName) => toolName switch
+    {
+        "list_tables" => Icons.Material.Filled.TableChart,
+        "describe_table" => Icons.Material.Filled.Schema,
+        "read_data" => Icons.Material.Filled.QueryStats,
+        "get_sample_data" => Icons.Material.Filled.Preview,
+        _ => Icons.Material.Filled.Build
+    };
+}

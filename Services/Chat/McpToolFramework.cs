@@ -22,11 +22,14 @@ public class McpToolResult
     public List<YearCount> YearCounts { get; set; } = new();
     public string? ErrorMessage { get; set; }
     public int TotalCount { get; set; }
-    public string ResultType { get; set; } = "documents"; // "documents", "movies", "yearcounts", "export"
+    public string ResultType { get; set; } = "documents"; // "documents", "movies", "yearcounts", "export", "table_list", "table_schema", "query_results", "sample_data"
 
     // Export-specific properties
     public string? ExportFileId { get; set; }
     public string? ExportFileName { get; set; }
+
+    // SQL Server MCP properties
+    public SqlQueryData? SqlData { get; set; }
 
     public static McpToolResult Ok(List<BsonDocument> documents, string query)
     {
@@ -89,6 +92,7 @@ public class McpToolResult
 
 public class ToolCall
 {
+    public string ToolCallId { get; set; } = string.Empty;
     public string ToolName { get; set; } = string.Empty;
     public JsonElement Arguments { get; set; }
     public McpToolResult? Result { get; set; }
@@ -121,4 +125,16 @@ public class ChatSession
         });
         LastActivityAt = DateTime.UtcNow;
     }
+}
+
+/// <summary>
+/// Data structure for SQL Server MCP tool results
+/// </summary>
+public class SqlQueryData
+{
+    public string? Message { get; set; }
+    public List<string>? Tables { get; set; }
+    public TableSchema? TableSchema { get; set; }
+    public List<string>? Columns { get; set; }
+    public List<Dictionary<string, object?>>? Rows { get; set; }
 }

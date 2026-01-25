@@ -117,7 +117,7 @@ public class QueryOrchestrator : IQueryOrchestrator
                     ToolCalls = response.ToolCalls
                 });
 
-                // Add tool results as messages
+                // Add tool results as messages - use the preserved ToolCallId
                 foreach (var toolResult in toolResults)
                 {
                     var resultContent = FormatToolResult(toolResult);
@@ -125,8 +125,7 @@ public class QueryOrchestrator : IQueryOrchestrator
                     {
                         Role = "tool",
                         Content = resultContent,
-                        ToolCallId = response.ToolCalls
-                            .FirstOrDefault(tc => tc.Function.Name == toolResult.ToolName)?.Id
+                        ToolCallId = toolResult.ToolCallId  // Use the stored ID, not lookup by name
                     });
                 }
 
@@ -228,6 +227,7 @@ public class QueryOrchestrator : IQueryOrchestrator
 
             var toolCall = new ToolCall
             {
+                ToolCallId = llmCall.Id,  // Preserve the tool call ID from LLM
                 ToolName = toolName,
                 Arguments = JsonDocument.Parse(llmCall.Function.Arguments).RootElement
             };
@@ -239,8 +239,8 @@ public class QueryOrchestrator : IQueryOrchestrator
             }
             else
             {
-                _logger.LogInformation("Executing tool: {ToolName} with args: {Args}",
-                    toolName, llmCall.Function.Arguments);
+                _logger.LogInformation("Executing tool: {ToolName} (id: {Id}) with args: {Args}",
+                    toolName, llmCall.Id, llmCall.Function.Arguments);
 
                 toolCall.Result = await tool.ExecuteAsync(toolCall.Arguments, user);
             }
